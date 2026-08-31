@@ -1,0 +1,60 @@
+{
+  "name": "管理者",
+  "collection": "admin",
+  "path": "admin-user",
+  "searchFields": ["username"],
+  "renderDelete": true,
+  "columns": [
+    {
+      "title": "帳號",
+      "key": "username",
+      "dataIndex": "username"
+    },
+    {
+      "title": "名稱",
+      "key": "name",
+      "dataIndex": "name"
+    }
+  ],
+  "sortOptions": [
+    {
+      "label": "時間新到舊",
+      "value": "-createdAt"
+    },
+    {
+      "label": "時間舊到新",
+      "value": "createdAt"
+    }
+  ],
+  "formSpec": {
+    "schema": {
+      "title": "",
+      "type": "object",
+      "properties": {
+        "username": {
+          "type":"string",
+          "title": "帳號"
+        },
+        "password": {
+          "type": "string",
+          "title": "密碼"
+        },
+        "name": {
+          "type": "string",
+          "title": "名稱"
+        }
+      }
+    },
+    "uiSchema": {
+      "username": {
+        "ui:disabledOn": ["edit"],
+        "ui:help": "至少需要 3 個字元"
+      },
+      "password": {
+        "ui:hiddenOn": ["edit"],
+        "ui:widget": "password",
+        "ui:help": "至少需要 6 個字元"
+      }
+    }
+  }
+}

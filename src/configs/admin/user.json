@@ -1,0 +1,86 @@
+{
+  "name": "會員",
+  "collection": "user",
+  "path": "user",
+  "searchFields": ["name", "email"],
+  "renderDelete": true,
+  "columns": [
+    {
+      "title": "頭像",
+      "key": "avatar",
+      "dataIndex": "avatar",
+      "renderType": "image"
+    },
+    {
+      "title": "名稱",
+      "key": "name",
+      "dataIndex": "name"
+    },
+    {
+      "title": "電子信箱",
+      "key": "email",
+      "dataIndex": "email"
+    }
+  ],
+  "sortOptions": [
+    {
+      "label": "時間新到舊",
+      "value": "-createdAt"
+    },
+    {
+      "label": "時間舊到新",
+      "value": "createdAt"
+    }
+  ],
+  "formSpec": {
+    "schema": {
+      "title": "",
+      "type": "object",
+      "required": ["username", "password","confirmPassword", "name", "email"],
+      "properties": {
+        "username": {
+          "type":"string",
+          "title": "帳號"
+        },
+        "password": {
+          "type": "string",
+          "title": "密碼"
+        },
+        "confirmPassword": {
+          "type": "string",
+          "title": "確認密碼"
+        },
+        "avatar": {
+          "type": ["string", "object"],
+          "title": "頭像"
+        },
+        "name": {
+          "type": "string",
+          "title": "名稱"
+        },
+        "email": {
+          "type": "string",
+          "title": "電子信箱"
+        }
+      }
+    },
+    "uiSchema": {
+      "username": {
+        "ui:hiddenOn": ["edit"],
+        "ui:help": "至少需要 3 個字元"
+      },
+      "password": {
+        "ui:hiddenOn": ["edit"],
+        "ui:widget": "password",
+        "ui:help": "至少需要 6 個字元"
+      },
+      "confirmPassword": {
+        "ui:hiddenOn": ["edit"],
+        "ui:widget": "password"
+      },
+      "avatar": {
+        "ui:widget": "ImageUpload"
+      }
+    }
+  }
+}
