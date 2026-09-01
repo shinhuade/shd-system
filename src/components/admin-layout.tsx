@@ -4,16 +4,71 @@ import { useState, useEffect } from 'react';
 import { usePathname, useRouter } from 'next/navigation';
 import styled from 'styled-components';
 import { App, Layout, Image, Menu, Button, FloatButton } from 'antd';
-import { User, GaugeHigh, ArrowRightFromBracket, List, Key } from '@styled-icons/fa-solid';
+import {
+  GaugeHigh,
+  ArrowRightFromBracket,
+  List,
+  Key,
+  Calculator,
+  Warehouse,
+  Flask,
+  Box,
+  Bolt,
+  Coins,
+  ChartLine,
+  ChartPie,
+  Users,
+  FileInvoiceDollar,
+  Calendar,
+  Gear,
+} from '@styled-icons/fa-solid';
 
 const { Content, Sider: AntdSider } = Layout;
 
-const siderWidth = 240;
+const siderWidth = 260;
 const menuItems = [
-  { label: '儀表板', key: '/admin', icon: <GaugeHigh size={16} /> },
-  // { label: '會員管理', key: '/admin/user', icon: <User size={16} /> },
+  { label: 'Dashboard', key: '/admin', icon: <GaugeHigh size={16} /> },
+  { label: '智慧報價', key: '/admin/quotes/new', icon: <Calculator size={16} /> },
+  {
+    label: '主檔管理',
+    key: 'master-data',
+    icon: <Warehouse size={16} />,
+    children: [
+      { label: '粉料管理', key: '/admin/materials', icon: <Flask size={16} /> },
+      { label: '包材管理', key: '/admin/packaging', icon: <Box size={16} /> },
+      { label: '水電瓦斯', key: '/admin/utilities', icon: <Bolt size={16} /> },
+      { label: '成本管理', key: '/admin/cost-management', icon: <Coins size={16} /> },
+    ],
+  },
+  {
+    label: '分析報表',
+    key: 'analysis',
+    icon: <ChartLine size={16} />,
+    children: [
+      { label: '產品分析', key: '/admin/product-analysis', icon: <ChartPie size={16} /> },
+      { label: '客戶分析', key: '/admin/customer-analysis', icon: <Users size={16} /> },
+      { label: '報價紀錄', key: '/admin/quotes', icon: <FileInvoiceDollar size={16} /> },
+      { label: '年度報表', key: '/admin/annual-report', icon: <Calendar size={16} /> },
+    ],
+  },
+  { label: '系統設定', key: '/admin/system-settings', icon: <Gear size={16} /> },
   { label: '帳號安全', key: '/admin/security', icon: <Key size={16} /> },
 ];
+
+type MenuLeaf = { label: string; key: string; icon: React.ReactNode };
+const flatLeaves: MenuLeaf[] = menuItems.flatMap((item) => item.children ?? [item]);
+
+/** 依最長前綴比對找出目前應該高亮的選單項目（避免 /admin/quotes 與 /admin/quotes/new 互相誤判） */
+function resolveSelectedKey(pathname: string): string | undefined {
+  const matched = flatLeaves.filter((leaf) => pathname === leaf.key || pathname.startsWith(`${leaf.key}/`));
+  if (matched.length === 0) return undefined;
+  return matched.reduce((longest, leaf) => (leaf.key.length > longest.key.length ? leaf : longest)).key;
+}
+
+function findOpenKeys(pathname: string): string[] {
+  const selectedKey = resolveSelectedKey(pathname);
+  return menuItems.filter((item) => item.children?.some((child) => child.key === selectedKey)).map((item) => item.key);
+}
 
 export default function AdminLayout({
   children,
@@ -25,6 +80,14 @@ export default function AdminLayout({
   const { message } = App.useApp();
   const [isMobile, setIsMobile] = useState<boolean>(false);
   const [mobileSiderOpen, setMobileSiderOpen] = useState<boolean>(false);
+  const [openKeys, setOpenKeys] = useState<string[]>(() => findOpenKeys(pathname));
+  const [openKeysSyncedPathname, setOpenKeysSyncedPathname] = useState(pathname);
+
+  // 依 React 官方建議的「渲染期間調整狀態」寫法，取代在 effect 內同步衍生狀態
+  if (pathname !== openKeysSyncedPathname) {
+    setOpenKeysSyncedPathname(pathname);
+    setOpenKeys((prev) => Array.from(new Set([...prev, ...findOpenKeys(pathname)])));
+  }
 
   useEffect(() => {
     const mediaQuery = window.matchMedia('(max-width: 992px)');
@@ -68,7 +131,9 @@ export default function AdminLayout({
         <Menu
           className="menu"
           mode="inline"
-          selectedKeys={[pathname]}
+          selectedKeys={resolveSelectedKey(pathname) ? [resolveSelectedKey(pathname) as string] : []}
+          openKeys={openKeys}
+          onOpenChange={setOpenKeys}
           items={menuItems}
           onClick={({ key }) => {
             router.push(key);

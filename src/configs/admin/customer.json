@@ -1,0 +1,95 @@
+{
+  "name": "客戶",
+  "collection": "customer",
+  "path": "customer",
+  "searchFields": ["name", "contactPerson", "phone", "email", "taxId"],
+  "renderDelete": true,
+  "columns": [
+    {
+      "title": "客戶名稱",
+      "key": "name",
+      "dataIndex": "name"
+    },
+    {
+      "title": "聯絡人",
+      "key": "contactPerson",
+      "dataIndex": "contactPerson"
+    },
+    {
+      "title": "電話",
+      "key": "phone",
+      "dataIndex": "phone"
+    },
+    {
+      "title": "電子信箱",
+      "key": "email",
+      "dataIndex": "email"
+    },
+    {
+      "title": "啟用中",
+      "key": "isActive",
+      "dataIndex": "isActive"
+    }
+  ],
+  "sortOptions": [
+    {
+      "label": "時間新到舊",
+      "value": "-createdAt"
+    },
+    {
+      "label": "時間舊到新",
+      "value": "createdAt"
+    }
+  ],
+  "formSpec": {
+    "schema": {
+      "title": "",
+      "type": "object",
+      "required": ["name"],
+      "properties": {
+        "name": {
+          "type": "string",
+          "title": "客戶名稱"
+        },
+        "contactPerson": {
+          "type": "string",
+          "title": "聯絡人"
+        },
+        "phone": {
+          "type": "string",
+          "title": "電話"
+        },
+        "email": {
+          "type": "string",
+          "title": "電子信箱"
+        },
+        "address": {
+          "type": "string",
+          "title": "地址"
+        },
+        "taxId": {
+          "type": "string",
+          "title": "統一編號"
+        },
+        "targetMarginRatePercent": {
+          "type": "number",
+          "title": "客戶專屬毛利率標準 (%)"
+        },
+        "notes": {
+          "type": "string",
+          "title": "備註"
+        },
+        "isActive": {
+          "type": "boolean",
+          "title": "啟用中",
+          "default": true
+        }
+      }
+    },
+    "uiSchema": {
+      "notes": {
+        "ui:widget": "textarea"
+      }
+    }
+  }
+}
