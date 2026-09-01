@@ -7,7 +7,7 @@ export default function Home() {
     <main className="has-header">
       <HeroSection>
         <div className="container">
-          <p className="eyebrow">NEXT TEMPLATE</p>
+          <p className="eyebrow">興樺德</p>
           <h1 className="title">把你的產品首頁，從樣板升級成可上線的第一印象。</h1>
           <p className="description">
             這份起始專案已經整理好骨架與元件節奏，你可以直接把重心放在功能開發， 同時保有品牌感與可維護性。
