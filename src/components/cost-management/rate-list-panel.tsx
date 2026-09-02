@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { App, Button, Form, Input, Modal, Select, Table } from 'antd';
-import { Plus } from '@styled-icons/fa-solid';
+import { App, Button, Form, Input, Modal, Popconfirm, Select, Space, Table } from 'antd';
+import { Plus, Pen, Trash } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal, { VersionField } from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
@@ -45,9 +45,12 @@ export default function RateListPanel({
   const [history, setHistory] = useState<Record<string, PriceHistoryRow[]>>({});
   const [historyLoading, setHistoryLoading] = useState(false);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editBaseTarget, setEditBaseTarget] = useState<RateItem | null>(null);
   const [versionModalTarget, setVersionModalTarget] = useState<RateItem | null>(null);
+  const [editingHistoryRow, setEditingHistoryRow] = useState<PriceHistoryRow | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [createForm] = Form.useForm();
+  const [editForm] = Form.useForm();
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -64,26 +67,14 @@ export default function RateListPanel({
 
   useEffect(() => {
     let mounted = true;
-
-    const init = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch(basePath);
-        const result = await res.json();
-        if (!mounted) return;
-        setItems(result?.data || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    init();
-
+    (async () => {
+      await load();
+      if (!mounted) return;
+    })();
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [basePath]);
 
   const loadHistoryFor = async (id: string) => {
@@ -102,7 +93,7 @@ export default function RateListPanel({
   const onExpand = (expanded: boolean, record: RateItem) => {
     const id = record._id;
     setExpandedId(expanded ? id : null);
-    if (expanded && !history[id]) loadHistoryFor(id);
+    if (expanded) loadHistoryFor(id);
   };
 
   const onCreateBase = async () => {
@@ -127,24 +118,75 @@ export default function RateListPanel({
     }
   };
 
-  const onAddVersion = async (values: Record<string, unknown>) => {
-    if (!versionModalTarget) return;
-    setSubmitting(true);
+  const onEditBase = async () => {
+    if (!editBaseTarget) return;
     try {
-      const res = await fetch(`${basePath}/${versionModalTarget._id}/price-history`, {
-        method: 'POST',
+      const values = await editForm.validateFields();
+      setSubmitting(true);
+      const res = await fetch(`${basePath}/${editBaseTarget._id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.message || '新增失敗');
-      message.success('已新增版本');
-      setVersionModalTarget(null);
-      await Promise.all([load(), loadHistoryFor(versionModalTarget._id)]);
+      if (!res.ok) throw new Error(result.message || '更新失敗');
+      message.success('已更新');
+      setEditBaseTarget(null);
+      await load();
     } catch (err) {
       if (err instanceof Error) message.error(err.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onDeleteBase = async (id: string) => {
+    try {
+      const res = await fetch(`${basePath}/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || '刪除失敗');
+      message.success('已刪除');
+      await load();
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
+    }
+  };
+
+  const onSubmitVersion = async (values: Record<string, unknown>) => {
+    if (!versionModalTarget) return;
+    setSubmitting(true);
+    try {
+      const url = editingHistoryRow
+        ? `${basePath}/${versionModalTarget._id}/price-history/${editingHistoryRow._id}`
+        : `${basePath}/${versionModalTarget._id}/price-history`;
+      const res = await fetch(url, {
+        method: editingHistoryRow ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || (editingHistoryRow ? '更新失敗' : '新增失敗'));
+      message.success(editingHistoryRow ? '已更新版本' : '已新增版本');
+      const targetId = versionModalTarget._id;
+      setVersionModalTarget(null);
+      setEditingHistoryRow(null);
+      await Promise.all([load(), loadHistoryFor(targetId)]);
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onDeleteVersion = async (itemId: string, row: PriceHistoryRow) => {
+    try {
+      const res = await fetch(`${basePath}/${itemId}/price-history/${row._id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || '刪除失敗');
+      message.success('已刪除該筆版本');
+      await Promise.all([load(), loadHistoryFor(itemId)]);
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
     }
   };
 
@@ -170,7 +212,17 @@ export default function RateListPanel({
               <TrendLineChart
                 data={[...(history[record._id] || [])].reverse().map((h) => ({ period: String(h.effectiveDate).slice(0, 10), value: h[versionValueField] as number }))}
               />
-              <PriceHistoryTable history={history[record._id] || []} valueField={versionValueField} valueLabel={valueLabel} loading={historyLoading} />
+              <PriceHistoryTable
+                history={history[record._id] || []}
+                valueField={versionValueField}
+                valueLabel={valueLabel}
+                loading={historyLoading}
+                onEdit={(row) => {
+                  setVersionModalTarget(record);
+                  setEditingHistoryRow(row);
+                }}
+                onDelete={(row) => onDeleteVersion(record._id, row)}
+              />
             </div>
           ),
         }}
@@ -186,9 +238,29 @@ export default function RateListPanel({
             title: '操作',
             key: 'action',
             render: (_: unknown, record: RateItem) => (
-              <Button size="small" onClick={() => setVersionModalTarget(record)}>
-                新增版本
-              </Button>
+              <Space size={4}>
+                <Button
+                  size="small"
+                  onClick={() => {
+                    setVersionModalTarget(record);
+                    setEditingHistoryRow(null);
+                  }}
+                >
+                  新增版本
+                </Button>
+                <Button
+                  size="small"
+                  type="text"
+                  icon={<Pen size={12} />}
+                  onClick={() => {
+                    setEditBaseTarget(record);
+                    editForm.setFieldsValue(record);
+                  }}
+                />
+                <Popconfirm title="確定要刪除這個項目嗎？（歷史版本也會一併刪除）" onConfirm={() => onDeleteBase(record._id)} okText="刪除" cancelText="取消">
+                  <Button size="small" type="text" danger icon={<Trash size={12} />} />
+                </Popconfirm>
+              </Space>
             ),
           },
         ]}
@@ -204,12 +276,26 @@ export default function RateListPanel({
         </Form>
       </Modal>
 
+      <Modal open={!!editBaseTarget} title="編輯項目" onCancel={() => setEditBaseTarget(null)} onOk={onEditBase} confirmLoading={submitting}>
+        <Form form={editForm} layout="vertical">
+          {createFields.map((field) => (
+            <Form.Item key={field.name} name={field.name} label={field.label} rules={[{ required: true, message: `請輸入${field.label}` }]}>
+              {field.type === 'select' ? <Select options={field.options} /> : <Input />}
+            </Form.Item>
+          ))}
+        </Form>
+      </Modal>
+
       <AddVersionModal
         open={!!versionModalTarget}
-        title="新增版本"
+        title={editingHistoryRow ? '編輯版本' : '新增版本'}
         submitting={submitting}
-        onCancel={() => setVersionModalTarget(null)}
-        onSubmit={onAddVersion}
+        onCancel={() => {
+          setVersionModalTarget(null);
+          setEditingHistoryRow(null);
+        }}
+        onSubmit={onSubmitVersion}
+        initialValues={editingHistoryRow || undefined}
         fields={versionFields}
       />
     </>

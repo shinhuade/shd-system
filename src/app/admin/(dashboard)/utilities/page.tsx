@@ -1,8 +1,8 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { App, Button, Card, Col, Form, Input, Modal, Row, Statistic, Tabs } from 'antd';
-import { Plus } from '@styled-icons/fa-solid';
+import { App, Button, Card, Col, Form, Input, Modal, Row, Space, Statistic, Tabs } from 'antd';
+import { Plus, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
@@ -27,10 +27,13 @@ export default function UtilitiesPage() {
   const [history, setHistory] = useState<PriceHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const [modalOpen, setModalOpen] = useState(false);
+  const [versionModalOpen, setVersionModalOpen] = useState(false);
+  const [editingHistoryRow, setEditingHistoryRow] = useState<PriceHistoryRow | null>(null);
   const [createModalOpen, setCreateModalOpen] = useState(false);
+  const [editInfoOpen, setEditInfoOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [createForm] = Form.useForm();
+  const [editForm] = Form.useForm();
 
   const loadRates = useCallback(async () => {
     setLoading(true);
@@ -47,26 +50,14 @@ export default function UtilitiesPage() {
 
   useEffect(() => {
     let mounted = true;
-
-    const load = async () => {
-      try {
-        setLoading(true);
-        const res = await fetch('/api/admin/utility-rates');
-        const result = await res.json();
-        if (!mounted) return;
-        setRates(result?.data || []);
-      } catch (err) {
-        console.error(err);
-      } finally {
-        if (mounted) setLoading(false);
-      }
-    };
-
-    load();
-
+    (async () => {
+      await loadRates();
+      if (!mounted) return;
+    })();
     return () => {
       mounted = false;
     };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   const current = rates.find((r) => r.type === activeType);
@@ -139,24 +130,63 @@ export default function UtilitiesPage() {
     }
   };
 
-  const onAddVersion = async (values: Record<string, unknown>) => {
+  const onEditInfo = async () => {
     if (!current) return;
-    setSubmitting(true);
     try {
-      const res = await fetch(`/api/admin/utility-rates/${current._id}/price-history`, {
-        method: 'POST',
+      const values = await editForm.validateFields();
+      setSubmitting(true);
+      const res = await fetch(`/api/admin/utility-rates/${current._id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(values),
       });
       const result = await res.json();
-      if (!res.ok) throw new Error(result.message || '新增失敗');
-      message.success('已新增價格版本');
-      setModalOpen(false);
+      if (!res.ok) throw new Error(result.message || '更新失敗');
+      message.success('已更新');
+      setEditInfoOpen(false);
+      await loadRates();
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
+  const onSubmitVersion = async (values: Record<string, unknown>) => {
+    if (!current) return;
+    setSubmitting(true);
+    try {
+      const url = editingHistoryRow
+        ? `/api/admin/utility-rates/${current._id}/price-history/${editingHistoryRow._id}`
+        : `/api/admin/utility-rates/${current._id}/price-history`;
+      const res = await fetch(url, {
+        method: editingHistoryRow ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(values),
+      });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || (editingHistoryRow ? '更新失敗' : '新增失敗'));
+      message.success(editingHistoryRow ? '已更新價格版本' : '已新增價格版本');
+      setVersionModalOpen(false);
+      setEditingHistoryRow(null);
       await Promise.all([loadRates(), loadHistory()]);
     } catch (err) {
       if (err instanceof Error) message.error(err.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onDeleteVersion = async (row: PriceHistoryRow) => {
+    if (!current) return;
+    try {
+      const res = await fetch(`/api/admin/utility-rates/${current._id}/price-history/${row._id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || '刪除失敗');
+      message.success('已刪除該筆歷史版本');
+      await Promise.all([loadRates(), loadHistory()]);
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
     }
   };
 
@@ -185,9 +215,27 @@ export default function UtilitiesPage() {
           <>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
               <Statistic title="目前單價" value={current.currentUnitPrice} precision={2} prefix="$" suffix={`/ ${current.unitLabel}`} />
-              <Button type="primary" icon={<Plus size={14} />} onClick={() => setModalOpen(true)}>
-                新增價格版本
-              </Button>
+              <Space>
+                <Button
+                  icon={<Pen size={14} />}
+                  onClick={() => {
+                    editForm.setFieldsValue(current);
+                    setEditInfoOpen(true);
+                  }}
+                >
+                  編輯計價單位
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<Plus size={14} />}
+                  onClick={() => {
+                    setEditingHistoryRow(null);
+                    setVersionModalOpen(true);
+                  }}
+                >
+                  新增價格版本
+                </Button>
+              </Space>
             </div>
             <Row gutter={[16, 16]}>
               <Col xs={24} lg={12}>
@@ -197,7 +245,17 @@ export default function UtilitiesPage() {
               </Col>
               <Col xs={24} lg={12}>
                 <Card variant="borderless" size="small" title="歷史價格">
-                  <PriceHistoryTable history={history} valueField="unitPrice" valueLabel="單價" loading={historyLoading} />
+                  <PriceHistoryTable
+                    history={history}
+                    valueField="unitPrice"
+                    valueLabel="單價"
+                    loading={historyLoading}
+                    onEdit={(row) => {
+                      setEditingHistoryRow(row);
+                      setVersionModalOpen(true);
+                    }}
+                    onDelete={onDeleteVersion}
+                  />
                 </Card>
               </Col>
             </Row>
@@ -213,12 +271,24 @@ export default function UtilitiesPage() {
         </Form>
       </Modal>
 
+      <Modal open={editInfoOpen} title="編輯計價單位" onCancel={() => setEditInfoOpen(false)} onOk={onEditInfo} confirmLoading={submitting}>
+        <Form form={editForm} layout="vertical">
+          <Form.Item name="unitLabel" label="計價單位" rules={[{ required: true, message: '請輸入計價單位' }]}>
+            <Input placeholder="例如：度、噸、kg" />
+          </Form.Item>
+        </Form>
+      </Modal>
+
       <AddVersionModal
-        open={modalOpen}
-        title="新增價格版本"
+        open={versionModalOpen}
+        title={editingHistoryRow ? '編輯價格版本' : '新增價格版本'}
         submitting={submitting}
-        onCancel={() => setModalOpen(false)}
-        onSubmit={onAddVersion}
+        onCancel={() => {
+          setVersionModalOpen(false);
+          setEditingHistoryRow(null);
+        }}
+        onSubmit={onSubmitVersion}
+        initialValues={editingHistoryRow || undefined}
         fields={[{ name: 'unitPrice', label: `單價 (元/${current?.unitLabel ?? ''})`, type: 'number', required: true }]}
       />
     </section>

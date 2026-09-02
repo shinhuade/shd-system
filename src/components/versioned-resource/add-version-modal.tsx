@@ -18,6 +18,7 @@ export default function AddVersionModal({
   submitting,
   onCancel,
   onSubmit,
+  initialValues,
 }: {
   open: boolean;
   title: string;
@@ -25,14 +26,24 @@ export default function AddVersionModal({
   submitting: boolean;
   onCancel: () => void;
   onSubmit: (values: Record<string, unknown>) => void;
+  /** 帶入既有資料即為「編輯」模式，effectiveDate 需為 ISO 字串 */
+  initialValues?: Record<string, unknown> & { effectiveDate?: string };
 }) {
   const [form] = Form.useForm();
 
   useEffect(() => {
     if (open) {
       form.resetFields();
-      form.setFieldsValue({ effectiveDate: dayjs() });
+      if (initialValues) {
+        form.setFieldsValue({
+          ...initialValues,
+          effectiveDate: initialValues.effectiveDate ? dayjs(initialValues.effectiveDate) : dayjs(),
+        });
+      } else {
+        form.setFieldsValue({ effectiveDate: dayjs() });
+      }
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, form]);
 
   return (

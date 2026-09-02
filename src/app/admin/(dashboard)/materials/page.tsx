@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Form, Input, Modal, Space, Switch, Table, Tag } from 'antd';
-import { Plus } from '@styled-icons/fa-solid';
+import { App, Button, Card, Form, Input, Modal, Popconfirm, Space, Switch, Table, Tag } from 'antd';
+import { Plus, Trash } from '@styled-icons/fa-solid';
 
 interface Material {
   _id: string;
@@ -24,6 +24,7 @@ export default function MaterialsPage() {
   const [loading, setLoading] = useState(true);
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
+  const [reloadToken, setReloadToken] = useState(0);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -48,7 +49,7 @@ export default function MaterialsPage() {
     return () => {
       mounted = false;
     };
-  }, []);
+  }, [reloadToken]);
 
   const onCreate = async () => {
     try {
@@ -70,6 +71,18 @@ export default function MaterialsPage() {
       if (err instanceof Error) message.error(err.message);
     } finally {
       setSubmitting(false);
+    }
+  };
+
+  const onDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/admin/materials/${id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || '刪除失敗');
+      message.success('已刪除');
+      setReloadToken((v) => v + 1);
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
     }
   };
 
@@ -108,6 +121,25 @@ export default function MaterialsPage() {
             { title: '目前單價', dataIndex: 'currentPricePerKg', key: 'currentPricePerKg', render: (v: number, r) => `$${v?.toLocaleString() ?? 0} / ${r.unit}` },
             { title: '損耗率', dataIndex: 'currentLossRatePercent', key: 'currentLossRatePercent', render: (v?: number | null) => (v == null ? '(使用預設)' : `${v}%`) },
             { title: '狀態', dataIndex: 'isActive', key: 'isActive', render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? '啟用中' : '停用'}</Tag> },
+            {
+              title: '操作',
+              key: 'action',
+              width: 64,
+              render: (_: unknown, record: Material) => (
+                <Popconfirm
+                  title="確定要刪除這筆粉料嗎？（歷史價格也會一併刪除）"
+                  onConfirm={(e) => {
+                    e?.stopPropagation();
+                    onDelete(record._id);
+                  }}
+                  onCancel={(e) => e?.stopPropagation()}
+                  okText="刪除"
+                  cancelText="取消"
+                >
+                  <Button size="small" type="text" danger icon={<Trash size={12} />} onClick={(e) => e.stopPropagation()} />
+                </Popconfirm>
+              ),
+            },
           ]}
         />
       </Card>

@@ -61,6 +61,47 @@ export async function addVersion({
   return { history, parentUpdated };
 }
 
+export interface SyncCurrentFromLatestOptions {
+  ParentModel: AnyModel;
+  HistoryModel: AnyModel;
+  parentIdField: string;
+  parentId: string;
+  cacheFieldMap: Record<string, string>;
+  parentEffectiveDateField?: string;
+}
+
+/**
+ * 修改或刪除某一筆歷史版本後，重新以「剩餘版本中最新的一筆」同步主檔的目前值快取。
+ * 若已無任何版本，快取欄位歸零／清空。
+ */
+export async function syncCurrentFromLatest({
+  ParentModel,
+  HistoryModel,
+  parentIdField,
+  parentId,
+  cacheFieldMap,
+  parentEffectiveDateField = 'lastEffectiveDate',
+}: SyncCurrentFromLatestOptions) {
+  const parent = await ParentModel.findById(parentId);
+  if (!parent) return;
+
+  const latest = await HistoryModel.findOne({ [parentIdField]: parentId }).sort({ effectiveDate: -1 }).lean();
+
+  if (latest) {
+    for (const [historyField, parentField] of Object.entries(cacheFieldMap)) {
+      parent.set(parentField, (latest as Record<string, unknown>)[historyField]);
+    }
+    parent.set(parentEffectiveDateField, (latest as Record<string, unknown>).effectiveDate);
+  } else {
+    for (const parentField of Object.values(cacheFieldMap)) {
+      parent.set(parentField, 0);
+    }
+    parent.set(parentEffectiveDateField, undefined);
+  }
+
+  await parent.save();
+}
+
 /** 查詢某主檔在某個時間點當下生效的版本（找不到則回傳 null） */
 export async function getValueAsOf(
   HistoryModel: AnyModel,

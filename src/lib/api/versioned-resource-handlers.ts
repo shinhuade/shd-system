@@ -3,7 +3,7 @@ import { Model } from 'mongoose';
 import { ZodError, ZodType } from 'zod';
 import dbConnect from '@/lib/db';
 import { validateAdmin } from '@/lib/auth/server';
-import { addVersion, listHistory } from '@/lib/pricing/versioning';
+import { addVersion, listHistory, syncCurrentFromLatest } from '@/lib/pricing/versioning';
 
 /**
  * 「主檔目前值快取 + 獨立 History 集合」這套版本化資料型態，在粉料/包材/水電瓦斯/
@@ -58,8 +58,16 @@ export function createBaseResourceHandlers(ParentModel: AnyModel, createSchema: 
   return { GET, POST };
 }
 
-/** GET(單筆) / PATCH(僅限基本欄位) / DELETE，protectedFields 會被禁止透過此端點修改 */
-export function createBaseItemHandlers(ParentModel: AnyModel, protectedFields: string[] = []) {
+export interface CascadeDeleteOptions {
+  HistoryModel: AnyModel;
+  parentIdField: string;
+}
+
+/**
+ * GET(單筆) / PATCH(僅限基本欄位) / DELETE，protectedFields 會被禁止透過此端點修改。
+ * 傳入 cascade 時，刪除主檔會一併刪除其所有歷史版本，避免留下孤兒紀錄。
+ */
+export function createBaseItemHandlers(ParentModel: AnyModel, protectedFields: string[] = [], cascade?: CascadeDeleteOptions) {
   async function GET(_req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
     try {
       const auth = await validateAdmin();
@@ -102,6 +110,9 @@ export function createBaseItemHandlers(ParentModel: AnyModel, protectedFields: s
       await dbConnect();
       const data = await ParentModel.findByIdAndDelete(id);
       if (!data) return NextResponse.json({ message: '找不到資料' }, { status: 404 });
+      if (cascade) {
+        await cascade.HistoryModel.deleteMany({ [cascade.parentIdField]: id });
+      }
       return NextResponse.json({ message: 'success' });
     } catch (err) {
       return handleError(err);
@@ -172,4 +183,69 @@ export function createPriceHistoryHandlers({
   }
 
   return { GET, POST };
+}
+
+export interface PriceHistoryItemHandlerOptions {
+  ParentModel: AnyModel;
+  HistoryModel: AnyModel;
+  parentIdField: string;
+  /** 可修改的欄位（例如 pricePerKg、lossRatePercent、effectiveDate、note），其餘欄位一律忽略 */
+  editableFields: string[];
+  cacheFieldMap: Record<string, string>;
+}
+
+/** PATCH(修正單筆歷史版本的數值) / DELETE(刪除單筆歷史版本)，異動後都會同步主檔目前值快取 */
+export function createPriceHistoryItemHandlers({
+  ParentModel,
+  HistoryModel,
+  parentIdField,
+  editableFields,
+  cacheFieldMap,
+}: PriceHistoryItemHandlerOptions) {
+  async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string; historyId: string }> }) {
+    try {
+      const auth = await validateAdmin();
+      if (!auth.isValid) return auth.response;
+
+      const { id, historyId } = await params;
+      const body = (await req.json()) as Record<string, unknown>;
+      const update: Record<string, unknown> = {};
+      for (const field of editableFields) {
+        if (field in body) update[field] = field === 'effectiveDate' ? new Date(body[field] as string) : body[field];
+      }
+
+      await dbConnect();
+      const data = await HistoryModel.findOneAndUpdate({ _id: historyId, [parentIdField]: id }, update, {
+        new: true,
+        runValidators: true,
+      });
+      if (!data) return NextResponse.json({ message: '找不到資料' }, { status: 404 });
+
+      await syncCurrentFromLatest({ ParentModel, HistoryModel, parentIdField, parentId: id, cacheFieldMap });
+
+      return NextResponse.json({ message: 'success', data });
+    } catch (err) {
+      return handleError(err);
+    }
+  }
+
+  async function DELETE(_req: NextRequest, { params }: { params: Promise<{ id: string; historyId: string }> }) {
+    try {
+      const auth = await validateAdmin();
+      if (!auth.isValid) return auth.response;
+
+      const { id, historyId } = await params;
+      await dbConnect();
+      const data = await HistoryModel.findOneAndDelete({ _id: historyId, [parentIdField]: id });
+      if (!data) return NextResponse.json({ message: '找不到資料' }, { status: 404 });
+
+      await syncCurrentFromLatest({ ParentModel, HistoryModel, parentIdField, parentId: id, cacheFieldMap });
+
+      return NextResponse.json({ message: 'success' });
+    } catch (err) {
+      return handleError(err);
+    }
+  }
+
+  return { PATCH, DELETE };
 }
