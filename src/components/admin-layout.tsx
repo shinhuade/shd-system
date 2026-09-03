@@ -220,6 +220,16 @@ const Sider = styled(AntdSider)<{ $visible: boolean }>`
         background: var(--primary-color);
         border-radius: 10px;
       }
+
+      .ant-menu-item-selected {
+        background-color: var(--accent-color);
+        color: var(--primary-color);
+
+        .ant-menu-item-icon,
+        svg {
+          color: var(--primary-color);
+        }
+      }
     }
   }
 `;

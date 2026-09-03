@@ -206,7 +206,7 @@ const Wrapper = styled.div<{ $aspectRatio: string; $circle: boolean }>`
         cursor: pointer;
         transition: color 0.3s;
         &:hover {
-          color: #1890ff !important; /* 建議替換為具體顏色或 theme 變數 */
+          color: var(--primary-color) !important;
         }
       }
     }
