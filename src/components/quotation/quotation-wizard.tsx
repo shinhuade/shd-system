@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
+import styled from 'styled-components';
 import {
   App,
   Button,
@@ -24,6 +25,8 @@ import {
 } from 'antd';
 import { computeTotalAreaCm2, computeCaiCount, buildFormulaCode } from '@/lib/pricing/area-formula';
 import { suggestBatchCount } from '@/lib/pricing/processing-cost';
+import { useIsMobile } from '@/hooks/use-media-query';
+import PageHeader from '@/components/page-header';
 
 interface FormulaTemplate {
   _id: string;
@@ -113,10 +116,13 @@ interface CalcResult {
 }
 
 const STEPS = ['工件尺寸', '選擇粉料', '數量與生產參數', '報價結果'];
+/** 手機版步驟條寬度有限，改用兩個字的短標題避免換行 */
+const MOBILE_STEPS = ['尺寸', '粉料', '數量', '報價'];
 
 export default function QuotationWizard() {
   const router = useRouter();
   const { message } = App.useApp();
+  const isMobile = useIsMobile();
   const [step, setStep] = useState(0);
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [materials, setMaterials] = useState<Material[]>([]);
@@ -408,18 +414,24 @@ export default function QuotationWizard() {
 
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>智慧報價</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>輸入尺寸 → 選粉料 → 輸入數量 → 立即看到成本與建議報價</p>
-      </div>
+      <PageHeader title="智慧報價" description="輸入尺寸 → 選粉料 → 輸入數量 → 立即看到成本與建議報價" />
 
-      <Steps current={step} items={STEPS.map((title) => ({ title }))} style={{ marginBottom: 24 }} />
+      {/* 手機版用小圓點步驟條，避免直式步驟佔滿整個畫面 */}
+      <Steps
+        current={step}
+        size="small"
+        responsive={false}
+        progressDot={isMobile}
+        items={(isMobile ? MOBILE_STEPS : STEPS).map((title) => ({ title }))}
+        style={{ marginBottom: isMobile ? 16 : 24 }}
+      />
 
       {loadingOptions ? (
         <Skeleton active paragraph={{ rows: 6 }} />
       ) : (
-        <Row gutter={[24, 24]}>
-          <Col xs={24} lg={14}>
+        <Row gutter={[16, 16]}>
+          {/* 進到報價結果時，手機版把試算結果排到表單前面，一打開就看到金額 */}
+          <Col xs={{ span: 24, order: step === 3 ? 2 : 1 }} lg={{ span: 14, order: 1 }}>
             <Card variant="borderless">
               {step === 0 && (
                 <Form layout="vertical">
@@ -473,17 +485,17 @@ export default function QuotationWizard() {
 
                   {isCustomFormula && (
                     <Row gutter={12}>
-                      <Col span={8}>
+                      <Col xs={24} sm={8}>
                         <Form.Item label="長×寬（前後）面數">
                           <InputNumber style={{ width: '100%' }} min={0} max={2} value={workpiece.lwFaces} onChange={(v) => update({ lwFaces: v ?? 0 })} />
                         </Form.Item>
                       </Col>
-                      <Col span={8}>
+                      <Col xs={24} sm={8}>
                         <Form.Item label="長×高（左右）面數">
                           <InputNumber style={{ width: '100%' }} min={0} max={2} value={workpiece.lhFaces} onChange={(v) => update({ lhFaces: v ?? 0 })} />
                         </Form.Item>
                       </Col>
-                      <Col span={8}>
+                      <Col xs={24} sm={8}>
                         <Form.Item label="寬×高（上下）面數">
                           <InputNumber style={{ width: '100%' }} min={0} max={2} value={workpiece.whFaces} onChange={(v) => update({ whFaces: v ?? 0 })} />
                         </Form.Item>
@@ -550,7 +562,7 @@ export default function QuotationWizard() {
                         children: (
                           <>
                             <Row gutter={12}>
-                              <Col span={12}>
+                              <Col xs={12} sm={12}>
                                 <Form.Item label="材質">
                                   <Input value={workpiece.materialTypeLabel} onChange={(e) => update({ materialTypeLabel: e.target.value })} />
                                 </Form.Item>
@@ -604,29 +616,29 @@ export default function QuotationWizard() {
                     ]}
                   />
 
-                  <Space style={{ width: '100%', justifyContent: 'space-between', marginTop: 12 }}>
+                  <StepActions>
                     <Button onClick={() => setStep(0)}>上一步</Button>
                     <Button type="primary" onClick={() => setStep(2)} disabled={!workpiece.materialId}>
                       下一步
                     </Button>
-                  </Space>
+                  </StepActions>
                 </Form>
               )}
 
               {step === 2 && (
                 <Form layout="vertical">
                   <Row gutter={12}>
-                    <Col span={8}>
+                    <Col xs={12} sm={8}>
                       <Form.Item label="掛件數">
                         <InputNumber style={{ width: '100%' }} min={0} value={workpiece.hangCount} onChange={(v) => update({ hangCount: v ?? 0 })} />
                       </Form.Item>
                     </Col>
-                    <Col span={8}>
+                    <Col xs={12} sm={8}>
                       <Form.Item label="烤爐容量（每批）">
                         <InputNumber style={{ width: '100%' }} min={0} value={workpiece.ovenCapacityPerBatch} onChange={(v) => update({ ovenCapacityPerBatch: v ?? 0 })} />
                       </Form.Item>
                     </Col>
-                    <Col span={8}>
+                    <Col xs={24} sm={8}>
                       <Form.Item
                         label="生產批次數"
                         help={
@@ -677,12 +689,12 @@ export default function QuotationWizard() {
                       </Form.Item>
                     </Col>
                   </Row>
-                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <StepActions>
                     <Button onClick={() => setStep(1)}>上一步</Button>
                     <Button type="primary" onClick={() => setStep(3)}>
                       計算報價
                     </Button>
-                  </Space>
+                  </StepActions>
                 </Form>
               )}
 
@@ -715,18 +727,18 @@ export default function QuotationWizard() {
                       <InputNumber style={{ width: '100%' }} min={0} value={customPrice} onChange={(v) => setCustomPrice(v ?? undefined)} />
                     </Form.Item>
                   )}
-                  <Space style={{ width: '100%', justifyContent: 'space-between' }}>
+                  <StepActions>
                     <Button onClick={() => setStep(2)}>上一步</Button>
                     <Button type="primary" loading={submitting} onClick={onSubmitQuotation} disabled={!result}>
                       確認報價
                     </Button>
-                  </Space>
+                  </StepActions>
                 </Form>
               )}
             </Card>
           </Col>
 
-          <Col xs={24} lg={10}>
+          <Col xs={{ span: 24, order: step === 3 ? 1 : 2 }} lg={{ span: 10, order: 2 }}>
             <Card variant="borderless" title="即時試算" loading={calculating}>
               {calcError && <Tag color="red">{calcError}</Tag>}
               {!result && !calcError && <p style={{ color: 'rgba(0,0,0,0.45)' }}>請先選擇粉料並輸入數量</p>}
@@ -785,14 +797,16 @@ export default function QuotationWizard() {
                   <Divider style={{ margin: '12px 0' }} />
                   <Statistic title="總成本" value={Math.round(result.breakdown.totalCost)} prefix="$" />
 
-                  <Row gutter={12} style={{ marginTop: 16 }}>
+                  <Row gutter={[8, 8]} style={{ marginTop: 16 }}>
                     {(['cost', 'standard', 'high_margin'] as const).map((tier) => (
                       <Col span={8} key={tier}>
                         <Card size="small" variant="borderless" style={{ background: '#fafafa', textAlign: 'center' }}>
                           <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
                             {tier === 'cost' ? '成本價' : tier === 'standard' ? '標準報價' : '高毛利報價'}
                           </div>
-                          <div style={{ fontSize: 20, fontWeight: 600 }}>${Math.round(result.suggestion.tiers[tier].price).toLocaleString()}</div>
+                          <div style={{ fontSize: isMobile ? 16 : 20, fontWeight: 600 }}>
+                            ${Math.round(result.suggestion.tiers[tier].price).toLocaleString()}
+                          </div>
                           <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>毛利率 {result.suggestion.tiers[tier].marginRatePercent.toFixed(1)}%</div>
                         </Card>
                       </Col>
@@ -812,3 +826,20 @@ export default function QuotationWizard() {
     </section>
   );
 }
+
+const StepActions = styled.div`
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  width: 100%;
+  margin-top: 12px;
+
+  /* 手機上兩顆按鈕平均分配寬度、加高，單手也好按 */
+  @media (max-width: 768px) {
+    .ant-btn {
+      flex: 1;
+      height: 44px;
+      font-size: 16px;
+    }
+  }
+`;

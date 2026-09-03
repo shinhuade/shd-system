@@ -2,6 +2,7 @@
 
 import { Pie } from '@ant-design/plots';
 import { Card, Empty } from 'antd';
+import { useIsMobile } from '@/hooks/use-media-query';
 
 const CATEGORY_LABELS: Record<string, string> = {
   material: '粉料成本',
@@ -14,6 +15,7 @@ const CATEGORY_LABELS: Record<string, string> = {
 };
 
 export default function CostBreakdownChart({ costByCategory }: { costByCategory: Record<string, number> }) {
+  const isMobile = useIsMobile();
   const data = Object.entries(costByCategory)
     .filter(([, value]) => value > 0)
     .map(([category, value]) => ({ type: CATEGORY_LABELS[category] || category, value }));
@@ -27,9 +29,10 @@ export default function CostBreakdownChart({ costByCategory }: { costByCategory:
           data={data}
           angleField="value"
           colorField="type"
-          height={280}
+          height={isMobile ? 240 : 280}
           innerRadius={0.6}
-          label={{ text: 'type', style: { fontSize: 11 } }}
+          // 手機版標籤容易互相重疊，改由下方圖例呈現分類
+          label={isMobile ? false : { text: 'type', style: { fontSize: 11 } }}
           legend={{ color: { position: 'bottom' } }}
         />
       )}

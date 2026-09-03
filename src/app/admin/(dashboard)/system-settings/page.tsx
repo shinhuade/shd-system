@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Statistic, Table } from 'antd';
+import PageHeader from '@/components/page-header';
 import dayjs from 'dayjs';
 
 const FIELDS: { name: string; label: string; suffix?: string; max?: number }[] = [
@@ -95,10 +96,10 @@ export default function SystemSettingsPage() {
 
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>系統設定</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>報價引擎使用的全域係數（加成率、損耗率預設值、漲價提醒門檻等），每次調整都保留版本</p>
-      </div>
+      <PageHeader
+        title="系統設定"
+        description="報價引擎使用的全域係數（加成率、損耗率預設值、漲價提醒門檻等），每次調整都保留版本"
+      />
 
       {current && (
         <Card variant="borderless" style={{ marginBottom: 16 }} loading={loading}>
@@ -129,7 +130,7 @@ export default function SystemSettingsPage() {
           <Form.Item name="note" label="備註">
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Button type="primary" loading={submitting} onClick={onSubmit}>
+          <Button type="primary" block loading={submitting} onClick={onSubmit}>
             儲存新版本
           </Button>
         </Form>
@@ -142,7 +143,7 @@ export default function SystemSettingsPage() {
           loading={loading}
           dataSource={history}
           pagination={{ pageSize: 6 }}
-          scroll={{ x: true }}
+          scroll={{ x: 'max-content' }}
           columns={[
             { title: '生效日期', dataIndex: 'effectiveDate', key: 'effectiveDate', render: (v: string) => dayjs(v).format('YYYY-MM-DD') },
             ...FIELDS.map((f) => ({

@@ -49,3 +49,114 @@ main.has-header {
   margin: 0 auto;
   padding: 0 var(--base-padding);
 }
+
+/* ==========================================================================
+   手機版（≤768px）閱讀優化
+   antd 元件樣式的權重為單一類別，這裡統一加上 body 前綴以確保覆寫生效。
+   ========================================================================== */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 12px;
+  }
+
+  /* iOS 在字級小於 16px 的輸入框上會自動放大整頁，統一拉大避免版面跳動 */
+  body input,
+  body textarea,
+  body .ant-input,
+  body .ant-input-number-input,
+  body .ant-select-selector,
+  body .ant-picker-input > input {
+    font-size: 16px;
+  }
+
+  /* 表單控制項加高，符合手機的點按熱區。
+     只加在「外框」元素上（ant-input-outlined 同時涵蓋單純輸入框與帶前後綴的外框），
+     若連內層 input 一起加高，帶前後綴的輸入框會被撐成兩層高度。 */
+  body .ant-input-outlined,
+  body .ant-input-number,
+  body .ant-select-single .ant-select-selector,
+  body .ant-picker {
+    min-height: 40px;
+  }
+
+  body .ant-btn:not(.ant-btn-sm):not(.ant-btn-link):not(.ant-btn-icon-only) {
+    min-height: 40px;
+  }
+
+  /* 卡片內距縮小，讓內容有更多可用寬度 */
+  body .ant-card-body {
+    padding: 14px;
+  }
+
+  body .ant-card-head {
+    padding: 0 14px;
+    min-height: 44px;
+  }
+
+  /* 無法卡片化的表格仍保留橫向捲動，但至少不會撐破版面 */
+  body .ant-table-wrapper {
+    max-width: 100%;
+    overflow-x: auto;
+  }
+
+  body .ant-table {
+    font-size: 13px;
+  }
+
+  body .ant-table-thead > tr > th,
+  body .ant-table-tbody > tr > td {
+    padding: 10px 8px;
+    white-space: nowrap;
+  }
+
+  /* 彈窗接近滿版，內容區可獨立捲動 */
+  body .ant-modal {
+    max-width: calc(100vw - 24px);
+    margin: 12px auto;
+    top: 12px;
+    padding-bottom: 12px;
+  }
+
+  body .ant-modal-body {
+    max-height: calc(100dvh - 200px);
+    overflow-y: auto;
+  }
+
+  /* 分頁標籤可橫向滑動，不再擠成兩行 */
+  body .ant-tabs-nav {
+    margin-bottom: 12px;
+  }
+
+  body .ant-tabs-tab {
+    padding: 10px 12px;
+    font-size: 15px;
+  }
+
+  /* 數值卡片字級略縮，避免長數字換行 */
+  body .ant-statistic-content {
+    font-size: 20px;
+  }
+
+  body .ant-statistic-title {
+    font-size: 13px;
+  }
+
+  /* 步驟條在窄螢幕改為精簡樣式 */
+  body .ant-steps-item-title {
+    font-size: 13px;
+  }
+
+  /* 表單項目間距縮小，一屏能看到更多欄位 */
+  body .ant-form-vertical .ant-form-item {
+    margin-bottom: 14px;
+  }
+
+  body .ant-form-item-label > label {
+    font-size: 14px;
+  }
+
+  /* 訊息與確認框留出安全距離 */
+  body .ant-message {
+    top: calc(8px + env(safe-area-inset-top));
+  }
+}

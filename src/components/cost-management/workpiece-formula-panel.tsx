@@ -1,8 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { App, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Switch, Table, Tag } from 'antd';
+import { App, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Switch, Tag } from 'antd';
 import { Plus, Pen, Trash } from '@styled-icons/fa-solid';
+import ResponsiveTable from '@/components/responsive-table';
 
 interface FormulaTemplate {
   _id: string;
@@ -124,13 +125,25 @@ export default function WorkpieceFormulaPanel() {
       </div>
 
       <Card variant="borderless">
-        <Table
+        <ResponsiveTable<FormulaTemplate>
           rowKey="_id"
           loading={loading}
           dataSource={items}
+          emptyText="尚未建立任何範本"
           columns={[
             { title: '公式', dataIndex: 'code', key: 'code', render: (v: string) => <Tag color="blue">{v}</Tag> },
-            { title: '名稱', dataIndex: 'name', key: 'name' },
+            {
+              title: '名稱',
+              dataIndex: 'name',
+              key: 'name',
+              mobilePrimary: true,
+              render: (v: string, record) => (
+                <Space>
+                  <span>{v}</span>
+                  <Tag color="blue">{record.code}</Tag>
+                </Space>
+              ),
+            },
             { title: '長×寬（前後）', dataIndex: 'lwFaces', key: 'lwFaces', render: (v: number) => `${v} 面` },
             { title: '長×高（左右）', dataIndex: 'lhFaces', key: 'lhFaces', render: (v: number) => `${v} 面` },
             { title: '寬×高（上下）', dataIndex: 'whFaces', key: 'whFaces', render: (v: number) => `${v} 面` },

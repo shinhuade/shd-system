@@ -2,7 +2,9 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, Descriptions, Row, Statistic, Table, Tag } from 'antd';
+import { App, Button, Card, Col, Descriptions, Row, Statistic, Tag } from 'antd';
+import PageHeader from '@/components/page-header';
+import ResponsiveTable from '@/components/responsive-table';
 import { ArrowLeft, ArrowsRotate } from '@styled-icons/fa-solid';
 import dayjs from 'dayjs';
 
@@ -103,18 +105,18 @@ export default function QuotationDetailClient({ id }: { id: string }) {
 
       {quotation && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <h1 style={{ fontSize: 24, marginBottom: 4 }}>{quotation.quotationNo}</h1>
-              <p style={{ color: 'rgba(0,0,0,0.45)' }}>{quotation.customerId?.name || '未知客戶'}</p>
-            </div>
-            <Button icon={<ArrowsRotate size={14} />} loading={checking} onClick={onRequoteCheck}>
-              重新檢查是否該漲價
-            </Button>
-          </div>
+          <PageHeader
+            title={quotation.quotationNo}
+            description={quotation.customerId?.name || '未知客戶'}
+            extra={
+              <Button icon={<ArrowsRotate size={14} />} loading={checking} onClick={onRequoteCheck}>
+                重新檢查是否該漲價
+              </Button>
+            }
+          />
 
           <Card variant="borderless" loading={loading} style={{ marginBottom: 16 }}>
-            <Descriptions column={{ xs: 1, sm: 2, lg: 4 }}>
+            <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }}>
               <Descriptions.Item label="日期">{dayjs(quotation.quotationDate).format('YYYY-MM-DD')}</Descriptions.Item>
               <Descriptions.Item label="狀態">
                 <Tag color={quotation.status === 'final' ? 'green' : 'default'}>{quotation.status === 'final' ? '正式' : '草稿'}</Tag>
@@ -133,12 +135,13 @@ export default function QuotationDetailClient({ id }: { id: string }) {
           </Card>
 
           <Card variant="borderless" title="工件明細" style={{ marginBottom: 16 }}>
-            <Table
+            <ResponsiveTable<QuotationItem>
               rowKey="_id"
               dataSource={items}
               pagination={false}
+              emptyText="這張報價單沒有工件明細"
               columns={[
-                { title: '工件名稱', dataIndex: 'workpieceName', key: 'workpieceName' },
+                { title: '工件名稱', dataIndex: 'workpieceName', key: 'workpieceName', mobilePrimary: true },
                 { title: '數量', dataIndex: 'quantity', key: 'quantity' },
                 { title: '公式', dataIndex: 'formulaCode', key: 'formulaCode', render: (v?: string) => (v ? <Tag color="blue">{v}</Tag> : '-') },
                 { title: '才數', dataIndex: 'caiCount', key: 'caiCount', render: (v?: number) => (v != null ? `${v.toFixed(2)} 才` : '-') },
@@ -151,12 +154,12 @@ export default function QuotationDetailClient({ id }: { id: string }) {
 
           {requoteResults && (
             <Card variant="borderless" title="漲價提醒檢查結果">
-              <Table
+              <ResponsiveTable<RequoteResult>
                 rowKey="quotationItemId"
                 dataSource={requoteResults}
                 pagination={false}
                 columns={[
-                  { title: '工件名稱', dataIndex: 'workpieceName', key: 'workpieceName' },
+                  { title: '工件名稱', dataIndex: 'workpieceName', key: 'workpieceName', mobilePrimary: true },
                   {
                     title: '狀態',
                     dataIndex: 'severity',

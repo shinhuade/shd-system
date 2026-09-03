@@ -1,8 +1,9 @@
 'use client';
 
-import { Button, Popconfirm, Space, Table } from 'antd';
+import { Button, Popconfirm, Space } from 'antd';
 import { Pen, Trash } from '@styled-icons/fa-solid';
 import dayjs from 'dayjs';
+import ResponsiveTable, { ResponsiveColumn } from '@/components/responsive-table';
 
 export interface PriceHistoryRow {
   _id: string;
@@ -31,17 +32,19 @@ export default function PriceHistoryTable({
   const showActions = Boolean(onEdit || onDelete);
 
   return (
-    <Table
+    <ResponsiveTable<PriceHistoryRow>
       rowKey="_id"
       loading={loading}
       size="small"
       pagination={{ pageSize: 8 }}
       dataSource={history}
+      emptyText="尚無歷史版本"
       columns={[
         {
           title: '生效日期',
           dataIndex: 'effectiveDate',
           key: 'effectiveDate',
+          mobilePrimary: true,
           render: (v: string) => dayjs(v).format('YYYY-MM-DD'),
         },
         {
@@ -52,7 +55,7 @@ export default function PriceHistoryTable({
         },
         { title: '備註', dataIndex: 'note', key: 'note', ellipsis: true },
         ...(showActions
-          ? [
+          ? ([
               {
                 title: '操作',
                 key: 'action',
@@ -70,7 +73,7 @@ export default function PriceHistoryTable({
                   </Space>
                 ),
               },
-            ]
+            ] as ResponsiveColumn<PriceHistoryRow>[])
           : []),
       ]}
     />

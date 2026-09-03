@@ -39,7 +39,7 @@ export default function SummaryCards({ summary, loading }: { summary: DashboardS
     return (
       <Row gutter={[16, 16]}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Col xs={24} sm={12} lg={6} key={i}>
+          <Col xs={12} sm={12} lg={6} key={i}>
             <Card variant="borderless">
               <Skeleton active paragraph={{ rows: 1 }} />
             </Card>
@@ -52,12 +52,12 @@ export default function SummaryCards({ summary, loading }: { summary: DashboardS
   return (
     <>
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月營收" value={summary.revenue} precision={0} prefix="$" />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月總成本" value={summary.totalCost} precision={0} prefix="$" />
             <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -66,12 +66,12 @@ export default function SummaryCards({ summary, loading }: { summary: DashboardS
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月毛利" value={summary.marginAmount} precision={0} prefix="$" />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月毛利率" value={summary.marginRatePercent} precision={1} suffix="%" />
           </Card>

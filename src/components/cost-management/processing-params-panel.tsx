@@ -1,6 +1,7 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
+import styled from 'styled-components';
 import { App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Statistic, Table } from 'antd';
 import { Plus } from '@styled-icons/fa-solid';
 import dayjs from 'dayjs';
@@ -107,12 +108,12 @@ export default function ProcessingParamsPanel() {
 
   return (
     <>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16 }}>
-        <p style={{ color: 'rgba(0,0,0,0.45)', margin: 0 }}>報價引擎計算加工成本時使用的每小時費率卡，每次調整都會保留完整版本</p>
+      <IntroRow>
+        <p>報價引擎計算加工成本時使用的每小時費率卡，每次調整都會保留完整版本</p>
         <Button type="primary" icon={<Plus size={14} />} onClick={openModal} loading={loading}>
           新增版本
         </Button>
-      </div>
+      </IntroRow>
 
       {current && (
         <Card variant="borderless" style={{ marginBottom: 16 }}>
@@ -138,7 +139,7 @@ export default function ProcessingParamsPanel() {
             ...FIELDS.map((f) => ({ title: f.label, dataIndex: f.name, key: f.name, render: (v: number) => `$${(v ?? 0).toLocaleString()}` })),
             { title: '備註', dataIndex: 'note', key: 'note', ellipsis: true },
           ]}
-          scroll={{ x: true }}
+          scroll={{ x: 'max-content' }}
         />
       </Card>
 
@@ -149,7 +150,7 @@ export default function ProcessingParamsPanel() {
           </Form.Item>
           <Row gutter={16}>
             {FIELDS.map((f) => (
-              <Col span={12} key={f.name}>
+              <Col xs={24} sm={12} key={f.name}>
                 <Form.Item name={f.name} label={f.label} rules={[{ required: true, message: `請輸入${f.label}` }]}>
                   <InputNumber style={{ width: '100%' }} min={0} prefix="$" />
                 </Form.Item>
@@ -164,3 +165,27 @@ export default function ProcessingParamsPanel() {
     </>
   );
 }
+
+const IntroRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  p {
+    color: rgba(0, 0, 0, 0.45);
+    margin: 0;
+  }
+
+  /* 手機上說明文字與按鈕改為上下排列，按鈕撐滿好點按 */
+  @media (max-width: 768px) {
+    flex-direction: column;
+    align-items: stretch;
+
+    p {
+      font-size: 13px;
+      line-height: 1.5;
+    }
+  }
+`;

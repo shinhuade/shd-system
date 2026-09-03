@@ -1,6 +1,7 @@
 'use client';
 
 import { Tabs } from 'antd';
+import PageHeader from '@/components/page-header';
 import RateListPanel from '@/components/cost-management/rate-list-panel';
 import ProcessingParamsPanel from '@/components/cost-management/processing-params-panel';
 import MonthlyCostRecordForm from '@/components/cost-management/monthly-cost-record-form';
@@ -20,10 +21,7 @@ const FIXED_COST_CATEGORY_LABELS: Record<string, string> = {
 export default function CostManagementPage() {
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>成本管理</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>人工、固定成本、加工參數與每月實際成本登錄，皆保留完整歷史版本</p>
-      </div>
+      <PageHeader title="成本管理" description="人工、固定成本、加工參數與每月實際成本登錄，皆保留完整歷史版本" />
 
       <Tabs
         items={[
