@@ -2,10 +2,13 @@ import mongoose, { Schema, Document, Model } from 'mongoose';
 import { commonOptions } from '@/lib/db';
 import { QuotationItemInput } from './schemas/quotation-item';
 
-export interface IQuotationItem extends Omit<QuotationItemInput, 'quotationId' | 'materialId' | 'packagingId'>, Document {
+export interface IQuotationItem
+  extends Omit<QuotationItemInput, 'quotationId' | 'materialId' | 'packagingId' | 'workpieceFormulaTemplateId'>,
+    Document {
   quotationId: mongoose.Types.ObjectId;
   materialId: mongoose.Types.ObjectId;
   packagingId?: mongoose.Types.ObjectId;
+  workpieceFormulaTemplateId?: mongoose.Types.ObjectId;
 }
 
 const CostParamsSnapshotSchema = new Schema(
@@ -65,6 +68,14 @@ const QuotationItemSchema: Schema = new Schema(
     overrideMaterialUsageKg: { type: Number },
     packagingId: { type: Schema.Types.ObjectId, ref: 'PackagingItem' },
     packagingQuantity: { type: Number },
+
+    workpieceFormulaTemplateId: { type: Schema.Types.ObjectId, ref: 'WorkpieceFormulaTemplate' },
+    formulaCode: { type: String },
+    lwFaces: { type: Number, default: 0 },
+    lhFaces: { type: Number, default: 0 },
+    whFaces: { type: Number, default: 0 },
+    totalAreaCm2: { type: Number, default: 0 },
+    caiCount: { type: Number, default: 0 },
 
     hangCount: { type: Number, default: 0 },
     ovenCapacityPerBatch: { type: Number, default: 0 },

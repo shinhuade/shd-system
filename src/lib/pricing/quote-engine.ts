@@ -1,5 +1,5 @@
 import { WorkpieceInput, RateSnapshot, PricingConfigSnapshot, CostBreakdown, QuoteSuggestion, QuoteTierResult } from './types';
-import { estimateMaterialUsageKg, computeMaterialCost } from './material-cost';
+import { estimateMaterialUsage, computeMaterialCost } from './material-cost';
 import { computeProcessingHours, computeProcessingCost } from './processing-cost';
 import { computePackagingCost } from './packaging-cost';
 import { computeIndirectCostAllocation } from './indirect-cost';
@@ -13,7 +13,7 @@ export function buildCostBreakdown(
   rates: RateSnapshot,
   config: PricingConfigSnapshot,
 ): CostBreakdown {
-  const materialUsageKg = estimateMaterialUsageKg(workpiece, config);
+  const { materialUsageKg, totalAreaCm2, caiCount, formulaCode } = estimateMaterialUsage(workpiece, config);
   const materialLossRatePercent =
     rates.materialLossRatePercent ?? config.defaultMaterialLossRatePercent;
   const materialCost = computeMaterialCost(materialUsageKg, rates.materialPricePerKg, materialLossRatePercent);
@@ -58,6 +58,9 @@ export function buildCostBreakdown(
     totalCost,
     materialUsageKg,
     processingHours,
+    totalAreaCm2,
+    caiCount,
+    formulaCode,
   };
 }
 

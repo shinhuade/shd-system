@@ -22,6 +22,19 @@ import {
   Steps,
   Tag,
 } from 'antd';
+import { computeTotalAreaCm2, computeCaiCount, buildFormulaCode } from '@/lib/pricing/area-formula';
+
+interface FormulaTemplate {
+  _id: string;
+  name: string;
+  code: string;
+  lwFaces: number;
+  lhFaces: number;
+  whFaces: number;
+  isActive: boolean;
+}
+
+const CUSTOM_TEMPLATE_VALUE = '__custom__';
 
 interface Material {
   _id: string;
@@ -49,6 +62,10 @@ interface WorkpieceForm {
   length?: number;
   width?: number;
   height?: number;
+  workpieceFormulaTemplateId?: string;
+  lwFaces: number;
+  lhFaces: number;
+  whFaces: number;
   quantity: number;
   unitWeightKg?: number;
   materialTypeLabel?: string;
@@ -82,6 +99,9 @@ interface CalcResult {
     wastageCost: number;
     indirectCostTotal: number;
     totalCost: number;
+    totalAreaCm2: number;
+    caiCount: number;
+    formulaCode: string;
   };
   suggestion: {
     costPrice: number;
@@ -100,11 +120,15 @@ export default function QuotationWizard() {
   const [loadingOptions, setLoadingOptions] = useState(true);
   const [materials, setMaterials] = useState<Material[]>([]);
   const [packagingItems, setPackagingItems] = useState<PackagingItem[]>([]);
+  const [templates, setTemplates] = useState<FormulaTemplate[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>();
 
-  const [workpiece, setWorkpiece] = useState<WorkpieceForm>({
+  const emptyWorkpiece: WorkpieceForm = {
     workpieceName: '',
+    lwFaces: 0,
+    lhFaces: 0,
+    whFaces: 0,
     quantity: 1,
     needsPretreatment: false,
     needsRustProof: false,
@@ -112,7 +136,8 @@ export default function QuotationWizard() {
     hangCount: 0,
     ovenCapacityPerBatch: 0,
     batchCount: 1,
-  });
+  };
+  const [workpiece, setWorkpiece] = useState<WorkpieceForm>(emptyWorkpiece);
   const update = (patch: Partial<WorkpieceForm>) => setWorkpiece((prev) => ({ ...prev, ...patch }));
 
   const [result, setResult] = useState<CalcResult | null>(null);
@@ -129,18 +154,21 @@ export default function QuotationWizard() {
     const init = async () => {
       try {
         setLoadingOptions(true);
-        const [materialsRes, packagingRes, customersRes] = await Promise.all([
+        const [materialsRes, packagingRes, customersRes, templatesRes] = await Promise.all([
           fetch('/api/admin/materials'),
           fetch('/api/admin/packaging'),
           fetch('/api/generic/customer/all'),
+          fetch('/api/admin/workpiece-formula-templates'),
         ]);
         const materialsResult = await materialsRes.json();
         const packagingResult = await packagingRes.json();
         const customersResult = await customersRes.json();
+        const templatesResult = await templatesRes.json();
         if (!mounted) return;
         setMaterials((materialsResult?.data || []).filter((m: Material) => m.isActive));
         setPackagingItems((packagingResult?.data || []).filter((p: PackagingItem) => p.isActive));
         setCustomers(customersResult?.data || []);
+        setTemplates((templatesResult?.data || []).filter((t: FormulaTemplate) => t.isActive));
       } catch (err) {
         console.error(err);
       } finally {
@@ -177,6 +205,9 @@ export default function QuotationWizard() {
             packagingId: workpiece.packagingId,
             workpiece: {
               dimensions: { length: workpiece.length, width: workpiece.width, height: workpiece.height },
+              lwFaces: workpiece.lwFaces,
+              lhFaces: workpiece.lhFaces,
+              whFaces: workpiece.whFaces,
               quantity: workpiece.quantity,
               unitWeightKg: workpiece.unitWeightKg,
               estimatedFilmThicknessUm: workpiece.estimatedFilmThicknessUm,
@@ -223,6 +254,9 @@ export default function QuotationWizard() {
     workpiece.length,
     workpiece.width,
     workpiece.height,
+    workpiece.lwFaces,
+    workpiece.lhFaces,
+    workpiece.whFaces,
     workpiece.quantity,
     workpiece.unitWeightKg,
     workpiece.estimatedFilmThicknessUm,
@@ -260,6 +294,10 @@ export default function QuotationWizard() {
               workpieceName: workpiece.workpieceName || '未命名工件',
               workpieceCode: workpiece.workpieceCode,
               dimensions: { length: workpiece.length, width: workpiece.width, height: workpiece.height },
+              workpieceFormulaTemplateId: workpiece.workpieceFormulaTemplateId,
+              lwFaces: workpiece.lwFaces,
+              lhFaces: workpiece.lhFaces,
+              whFaces: workpiece.whFaces,
               quantity: workpiece.quantity,
               unitWeightKg: workpiece.unitWeightKg,
               materialTypeLabel: workpiece.materialTypeLabel,
@@ -312,16 +350,7 @@ export default function QuotationWizard() {
               setSubmitted(null);
               setStep(0);
               setResult(null);
-              setWorkpiece({
-                workpieceName: '',
-                quantity: 1,
-                needsPretreatment: false,
-                needsRustProof: false,
-                needsRustRemoval: false,
-                hangCount: 0,
-                ovenCapacityPerBatch: 0,
-                batchCount: 1,
-              });
+              setWorkpiece(emptyWorkpiece);
             }}
           >
             建立下一張報價
@@ -332,6 +361,33 @@ export default function QuotationWizard() {
   }
 
   const selectedMaterial = materials.find((m) => m._id === workpiece.materialId);
+
+  const isCustomFormula = workpiece.workpieceFormulaTemplateId === CUSTOM_TEMPLATE_VALUE;
+  const currentFaces = { lwFaces: workpiece.lwFaces, lhFaces: workpiece.lhFaces, whFaces: workpiece.whFaces };
+  const liveFormulaCode = buildFormulaCode(currentFaces);
+  const liveTotalAreaCm2 = computeTotalAreaCm2(
+    { length: workpiece.length, width: workpiece.width, height: workpiece.height },
+    currentFaces,
+  );
+  const liveCaiCount = computeCaiCount(liveTotalAreaCm2);
+  const hasFormulaSelected = isCustomFormula
+    ? currentFaces.lwFaces + currentFaces.lhFaces + currentFaces.whFaces > 0
+    : Boolean(workpiece.workpieceFormulaTemplateId);
+
+  const onSelectTemplate = (templateId: string) => {
+    if (templateId === CUSTOM_TEMPLATE_VALUE) {
+      update({ workpieceFormulaTemplateId: CUSTOM_TEMPLATE_VALUE });
+      return;
+    }
+    const template = templates.find((t) => t._id === templateId);
+    if (!template) return;
+    update({
+      workpieceFormulaTemplateId: templateId,
+      lwFaces: template.lwFaces,
+      lhFaces: template.lhFaces,
+      whFaces: template.whFaces,
+    });
+  };
 
   return (
     <section>
@@ -358,17 +414,17 @@ export default function QuotationWizard() {
                   </Form.Item>
                   <Row gutter={12}>
                     <Col span={8}>
-                      <Form.Item label="長 (mm)">
+                      <Form.Item label="長 (cm)">
                         <InputNumber style={{ width: '100%' }} min={0} value={workpiece.length} onChange={(v) => update({ length: v ?? undefined })} />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item label="寬 (mm)">
+                      <Form.Item label="寬 (cm)">
                         <InputNumber style={{ width: '100%' }} min={0} value={workpiece.width} onChange={(v) => update({ width: v ?? undefined })} />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item label="高 (mm)">
+                      <Form.Item label="高 (cm)">
                         <InputNumber style={{ width: '100%' }} min={0} value={workpiece.height} onChange={(v) => update({ height: v ?? undefined })} />
                       </Form.Item>
                     </Col>
@@ -385,7 +441,68 @@ export default function QuotationWizard() {
                       </Form.Item>
                     </Col>
                   </Row>
-                  <Button type="primary" block onClick={() => setStep(1)} disabled={!workpiece.workpieceName || !workpiece.quantity}>
+
+                  <Form.Item label="工件類型（才數公式）" required>
+                    <Select
+                      placeholder="選擇工件類型"
+                      value={workpiece.workpieceFormulaTemplateId}
+                      onChange={onSelectTemplate}
+                      options={[
+                        ...templates.map((t) => ({ value: t._id, label: `${t.name} ${t.code}` })),
+                        { value: CUSTOM_TEMPLATE_VALUE, label: '自訂面數' },
+                      ]}
+                    />
+                  </Form.Item>
+
+                  {isCustomFormula && (
+                    <Row gutter={12}>
+                      <Col span={8}>
+                        <Form.Item label="長×寬（前後）面數">
+                          <InputNumber style={{ width: '100%' }} min={0} max={2} value={workpiece.lwFaces} onChange={(v) => update({ lwFaces: v ?? 0 })} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={8}>
+                        <Form.Item label="長×高（左右）面數">
+                          <InputNumber style={{ width: '100%' }} min={0} max={2} value={workpiece.lhFaces} onChange={(v) => update({ lhFaces: v ?? 0 })} />
+                        </Form.Item>
+                      </Col>
+                      <Col span={8}>
+                        <Form.Item label="寬×高（上下）面數">
+                          <InputNumber style={{ width: '100%' }} min={0} max={2} value={workpiece.whFaces} onChange={(v) => update({ whFaces: v ?? 0 })} />
+                        </Form.Item>
+                      </Col>
+                    </Row>
+                  )}
+
+                  {hasFormulaSelected && (
+                    <Card size="small" variant="borderless" style={{ background: '#fafafa', marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span>公式</span>
+                        <Tag color="blue">{liveFormulaCode}</Tag>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                        <div>L×W（前後）：{currentFaces.lwFaces} 面</div>
+                        <div>L×H（左右）：{currentFaces.lhFaces} 面</div>
+                        <div>W×H（上下）：{currentFaces.whFaces} 面</div>
+                      </div>
+                      <Divider style={{ margin: '8px 0' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>總面積</span>
+                        <span>{liveTotalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²</span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>才數</span>
+                        <strong>{liveCaiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 才</strong>
+                      </div>
+                    </Card>
+                  )}
+
+                  <Button
+                    type="primary"
+                    block
+                    onClick={() => setStep(1)}
+                    disabled={!workpiece.workpieceName || !workpiece.quantity || !hasFormulaSelected}
+                  >
                     下一步
                   </Button>
                 </Form>
@@ -568,6 +685,17 @@ export default function QuotationWizard() {
               {!result && !calcError && <p style={{ color: 'rgba(0,0,0,0.45)' }}>請先選擇粉料並輸入數量</p>}
               {result && (
                 <>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
+                    <Space>
+                      <Tag color="blue">公式 {result.breakdown.formulaCode}</Tag>
+                      <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                        {result.breakdown.totalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²
+                      </span>
+                    </Space>
+                    <span>
+                      <strong>{result.breakdown.caiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> 才
+                    </span>
+                  </div>
                   <Space orientation="vertical" style={{ width: '100%' }} size={4}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                       <span>粉料成本</span>

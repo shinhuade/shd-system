@@ -54,6 +54,15 @@ export const QuotationItemSchema = z
     packagingId: z.string().optional(),
     packagingQuantity: z.number().min(0).optional(),
 
+    /** 才數／面數公式快照（Layer 1 結果），一律凍結在報價當下，之後範本異動不會回頭影響 */
+    workpieceFormulaTemplateId: z.string().optional(),
+    formulaCode: z.string().optional(),
+    lwFaces: z.number().min(0).max(2).default(0),
+    lhFaces: z.number().min(0).max(2).default(0),
+    whFaces: z.number().min(0).max(2).default(0),
+    totalAreaCm2: z.number().min(0).default(0),
+    caiCount: z.number().min(0).default(0),
+
     hangCount: z.number().min(0).default(0),
     ovenCapacityPerBatch: z.number().min(0).default(0),
     batchCount: z.number().min(0).default(1),

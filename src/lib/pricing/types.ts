@@ -5,12 +5,20 @@ export interface Dimensions {
 }
 
 export interface WorkpieceInput {
+  /** 長寬高單位為公分 (cm)，才數計算以此為準 */
   dimensions?: Dimensions;
   quantity: number;
   unitWeightKg?: number;
   totalWeightKg?: number;
   estimatedFilmThicknessUm?: number;
-  /** 若使用者直接輸入理論粉料用量(kg)，優先採用，不再用幾何估算 */
+  /**
+   * 面數公式的三個方向面數（0~2），來自 WorkpieceFormulaTemplate 或自訂。
+   * 未提供時視為 0（不會自行假設，避免猜測面積）。
+   */
+  lwFaces?: number;
+  lhFaces?: number;
+  whFaces?: number;
+  /** 若使用者直接輸入理論粉料用量(kg)，優先採用，不再用才數估算 */
   overrideMaterialUsageKg?: number;
   hangCount: number;
   ovenCapacityPerBatch: number;
@@ -71,9 +79,13 @@ export interface CostBreakdown {
   indirectCostTotal: number;
   totalDirectCost: number;
   totalCost: number;
-  /** 中繼數值，供 UI 顯示/除錯用 */
+  /** 中繼數值，供 UI 顯示、以及寫入 QuotationItem 的歷史快照用 */
   materialUsageKg: number;
   processingHours: number;
+  /** 才數計算（Layer 1）結果快照：總面積(cm²)、才數、面數公式 */
+  totalAreaCm2: number;
+  caiCount: number;
+  formulaCode: string;
 }
 
 export interface QuoteTierResult {

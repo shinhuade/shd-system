@@ -1,48 +1,52 @@
-import { Dimensions, WorkpieceInput, PricingConfigSnapshot } from './types';
+import { WorkpieceInput, PricingConfigSnapshot } from './types';
+import { computeTotalAreaCm2, computeCaiCount, buildFormulaCode, FaceCounts } from './area-formula';
 
-/**
- * 依工件外觀尺寸估算表面積（以長方體六面估算，取近似值）。
- * 沒有足夠尺寸資料時回傳 0，交由呼叫端 fallback 到單重估算或人工輸入。
- */
-export function estimateSurfaceAreaM2(dimensions?: Dimensions): number {
-  const { length, width, height } = dimensions ?? {};
-  if (!length || !width || !height) return 0;
-
-  // 長寬高單位假設為 mm，換算為 m²
-  const l = length / 1000;
-  const w = width / 1000;
-  const h = height / 1000;
-
-  const surfaceAreaM2 = 2 * (l * w + l * h + w * h);
-  return surfaceAreaM2;
+export interface MaterialUsageResult {
+  materialUsageKg: number;
+  totalAreaCm2: number;
+  caiCount: number;
+  formulaCode: string;
 }
 
 /**
- * 估算單一批次（含全部數量）的理論粉料用量（kg）。
- * 若使用者已直接輸入 overrideMaterialUsageKg，優先採用。
- * 否則以「表面積 × 膜厚 × 粉料用量係數 ÷ 轉移效率」估算單件用量，再乘以數量。
- * powderUsageGramPerM2PerMicron / transferEfficiencyPercent 皆來自 SystemSettings，
- * 為預留給工廠未來用實際數據校正的係數，不可寫死。
+ * 估算單一批次（含全部數量）的理論粉料用量（kg），以及對應的才數計算（Layer 1 結果）。
+ * 若使用者已直接輸入 overrideMaterialUsageKg，優先採用（此時才數/面積仍照公式算出，
+ * 只是不參與用量計算，方便使用者對照）。
+ *
+ * 面積來源：本廠「才數」規則——總噴塗面積(cm²) = (L×W×A)+(L×H×B)+(W×H×C)，
+ * 才數 = 總面積 ÷ 900，1 才本身就是雙面才的計價單位，不再額外 ×2（見公司內部定義）。
+ * 粉料用量 = 面積(m²) × 膜厚 × 粉料用量係數 ÷ 轉移效率，係數皆來自 SystemSettings，不可寫死。
  */
-export function estimateMaterialUsageKg(
+export function estimateMaterialUsage(
   workpiece: WorkpieceInput,
   coeffs: Pick<PricingConfigSnapshot, 'powderUsageGramPerM2PerMicron' | 'transferEfficiencyPercent'>,
-): number {
+): MaterialUsageResult {
+  const faces: FaceCounts = {
+    lwFaces: workpiece.lwFaces ?? 0,
+    lhFaces: workpiece.lhFaces ?? 0,
+    whFaces: workpiece.whFaces ?? 0,
+  };
+  const totalAreaCm2 = computeTotalAreaCm2(workpiece.dimensions, faces);
+  const caiCount = computeCaiCount(totalAreaCm2);
+  const formulaCode = buildFormulaCode(faces);
+
   if (typeof workpiece.overrideMaterialUsageKg === 'number' && workpiece.overrideMaterialUsageKg >= 0) {
-    return workpiece.overrideMaterialUsageKg;
+    return { materialUsageKg: workpiece.overrideMaterialUsageKg, totalAreaCm2, caiCount, formulaCode };
   }
 
-  const surfaceAreaM2 = estimateSurfaceAreaM2(workpiece.dimensions);
+  const surfaceAreaM2PerUnit = totalAreaCm2 / 10000;
   const filmThicknessUm = workpiece.estimatedFilmThicknessUm ?? 0;
   const transferEfficiency = (coeffs.transferEfficiencyPercent || 100) / 100;
 
-  if (!surfaceAreaM2 || !filmThicknessUm || !transferEfficiency) return 0;
+  if (!surfaceAreaM2PerUnit || !filmThicknessUm || !transferEfficiency) {
+    return { materialUsageKg: 0, totalAreaCm2, caiCount, formulaCode };
+  }
 
   const usageGramPerUnit =
-    (surfaceAreaM2 * filmThicknessUm * coeffs.powderUsageGramPerM2PerMicron) / transferEfficiency;
+    (surfaceAreaM2PerUnit * filmThicknessUm * coeffs.powderUsageGramPerM2PerMicron) / transferEfficiency;
   const usageKgPerUnit = usageGramPerUnit / 1000;
 
-  return usageKgPerUnit * workpiece.quantity;
+  return { materialUsageKg: usageKgPerUnit * workpiece.quantity, totalAreaCm2, caiCount, formulaCode };
 }
 
 /**

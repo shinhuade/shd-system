@@ -21,6 +21,9 @@ type QuotationItemLike = Pick<
   | 'totalWeightKg'
   | 'estimatedFilmThicknessUm'
   | 'overrideMaterialUsageKg'
+  | 'lwFaces'
+  | 'lhFaces'
+  | 'whFaces'
   | 'hangCount'
   | 'ovenCapacityPerBatch'
   | 'batchCount'
@@ -52,6 +55,10 @@ export async function checkQuotationItemRequote(item: QuotationItemLike): Promis
     totalWeightKg: item.totalWeightKg,
     estimatedFilmThicknessUm: item.estimatedFilmThicknessUm,
     overrideMaterialUsageKg: item.overrideMaterialUsageKg,
+    // 面數快照一律凍結使用當初報價時的值，即使範本之後被修改也不會影響這裡的重算
+    lwFaces: item.lwFaces,
+    lhFaces: item.lhFaces,
+    whFaces: item.whFaces,
     hangCount: item.hangCount,
     ovenCapacityPerBatch: item.ovenCapacityPerBatch,
     batchCount: item.batchCount,

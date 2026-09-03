@@ -4,6 +4,7 @@ import { Tabs } from 'antd';
 import RateListPanel from '@/components/cost-management/rate-list-panel';
 import ProcessingParamsPanel from '@/components/cost-management/processing-params-panel';
 import MonthlyCostRecordForm from '@/components/cost-management/monthly-cost-record-form';
+import WorkpieceFormulaPanel from '@/components/cost-management/workpiece-formula-panel';
 import { FIXED_COST_CATEGORIES } from '@/models/schemas/fixed-cost';
 
 const FIXED_COST_CATEGORY_LABELS: Record<string, string> = {
@@ -67,6 +68,7 @@ export default function CostManagementPage() {
             ),
           },
           { key: 'processing-params', label: '加工參數設定', children: <ProcessingParamsPanel /> },
+          { key: 'formula-templates', label: '才數公式範本', children: <WorkpieceFormulaPanel /> },
           { key: 'monthly-records', label: '本月成本登錄', children: <MonthlyCostRecordForm /> },
         ]}
       />

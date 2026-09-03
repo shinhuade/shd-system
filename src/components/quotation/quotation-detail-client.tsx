@@ -10,6 +10,8 @@ interface QuotationItem {
   _id: string;
   workpieceName: string;
   quantity: number;
+  formulaCode?: string;
+  caiCount?: number;
   costBreakdown: { totalCost: number };
   chosenPrice: number;
   marginRatePercent: number;
@@ -138,6 +140,8 @@ export default function QuotationDetailClient({ id }: { id: string }) {
               columns={[
                 { title: '工件名稱', dataIndex: 'workpieceName', key: 'workpieceName' },
                 { title: '數量', dataIndex: 'quantity', key: 'quantity' },
+                { title: '公式', dataIndex: 'formulaCode', key: 'formulaCode', render: (v?: string) => (v ? <Tag color="blue">{v}</Tag> : '-') },
+                { title: '才數', dataIndex: 'caiCount', key: 'caiCount', render: (v?: number) => (v != null ? `${v.toFixed(2)} 才` : '-') },
                 { title: '成本', dataIndex: ['costBreakdown', 'totalCost'], key: 'cost', render: (v: number) => `$${Math.round(v).toLocaleString()}` },
                 { title: '報價', dataIndex: 'chosenPrice', key: 'chosenPrice', render: (v: number) => `$${Math.round(v).toLocaleString()}` },
                 { title: '毛利率', dataIndex: 'marginRatePercent', key: 'marginRatePercent', render: (v: number) => `${v.toFixed(1)}%` },
