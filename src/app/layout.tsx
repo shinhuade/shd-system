@@ -32,12 +32,16 @@ export default function RootLayout({
             theme={{
               token: {
                 colorPrimary: theme.colors.primary,
+                colorTextSecondary: theme.colors.secondary,
+                colorBorderSecondary: theme.colors.accent,
+                colorFillSecondary: theme.colors.accent,
+                colorBgLayout: theme.colors.accent,
                 colorLink: 'inherit',
               },
               components: {
                 Layout: {
                   siderBg: '#fff',
-                  bodyBg: '#fff',
+                  bodyBg: theme.colors.accent,
                 },
                 Button: {
                   colorLinkHover: theme.colors.primary,

@@ -6,6 +6,8 @@ import theme from './theme';
 const style = css`
   :root {
     --primary-color: ${theme.colors.primary};
+    --secondary-color: ${theme.colors.secondary};
+    --accent-color: ${theme.colors.accent};
     --navbar-height: 80px;
     --base-padding: 16px;
     -webkit-tap-highlight-color: transparent;

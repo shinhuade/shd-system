@@ -1,78 +1,136 @@
 'use client';
 
-import { useEffect, useState } from 'react';
-import { Card, Col, Row, Statistic, Skeleton } from 'antd';
-
-interface DashboardCounts {
-  userTotal: number;
-  adminTotal: number;
-}
+import { useCallback, useEffect, useState } from 'react';
+import { Row, Col, App } from 'antd';
+import SummaryCards, { DashboardSummary } from '@/components/dashboard/summary-cards';
+import AlertBanner, { AlertItem } from '@/components/dashboard/alert-banner';
+import CostBreakdownChart from '@/components/dashboard/cost-breakdown-chart';
+import CostTrendPanel from '@/components/charts/cost-trend-panel';
 
 export default function Dashboard() {
-  const [loading, setLoading] = useState(true);
-  const [counts, setCounts] = useState<DashboardCounts>({ userTotal: 0, adminTotal: 0 });
+  const { message } = App.useApp();
+  const [summary, setSummary] = useState<DashboardSummary | null>(null);
+  const [summaryLoading, setSummaryLoading] = useState(true);
+  const [alerts, setAlerts] = useState<AlertItem[]>([]);
+  const [alertsLoading, setAlertsLoading] = useState(true);
+  const [refreshing, setRefreshing] = useState(false);
+
+  const loadSummary = useCallback(async () => {
+    setSummaryLoading(true);
+    try {
+      const res = await fetch('/api/admin/dashboard/summary');
+      const result = await res.json();
+      setSummary(result?.data || null);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setSummaryLoading(false);
+    }
+  }, []);
+
+  const loadAlerts = useCallback(async () => {
+    setAlertsLoading(true);
+    try {
+      const res = await fetch('/api/admin/alerts?status=open');
+      const result = await res.json();
+      setAlerts(result?.data || []);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setAlertsLoading(false);
+    }
+  }, []);
+
+  const refreshAlerts = useCallback(async () => {
+    setRefreshing(true);
+    try {
+      await fetch('/api/admin/alerts/refresh', { method: 'POST' });
+      await Promise.all([loadAlerts(), loadSummary()]);
+    } catch (err) {
+      console.error(err);
+      message.error('重新檢查失敗');
+    } finally {
+      setRefreshing(false);
+    }
+  }, [loadAlerts, loadSummary, message]);
 
   useEffect(() => {
     let mounted = true;
 
-    const loadDashboard = async () => {
+    const bootstrap = async () => {
       try {
-        setLoading(true);
-
-        const [userRes, adminRes] = await Promise.all([
-          fetch('/api/generic/user?page=1&limit=1', { method: 'GET' }),
-          fetch('/api/generic/admin?page=1&limit=1', { method: 'GET' }),
+        await fetch('/api/admin/alerts/refresh', { method: 'POST' });
+        const [summaryRes, alertsRes] = await Promise.all([
+          fetch('/api/admin/dashboard/summary'),
+          fetch('/api/admin/alerts?status=open'),
         ]);
-
-        const userResult = await userRes.json().catch(() => null);
-        const adminResult = await adminRes.json().catch(() => null);
-
+        const [summaryResult, alertsResult] = await Promise.all([summaryRes.json(), alertsRes.json()]);
         if (!mounted) return;
-
-        setCounts({
-          userTotal: Number(userResult?.total || 0),
-          adminTotal: Number(adminResult?.total || 0),
-        });
+        setSummary(summaryResult?.data || null);
+        setAlerts(alertsResult?.data || []);
       } catch (err) {
         console.error(err);
       } finally {
-        if (mounted) setLoading(false);
+        if (mounted) {
+          setSummaryLoading(false);
+          setAlertsLoading(false);
+          setRefreshing(false);
+        }
       }
     };
 
-    loadDashboard();
+    bootstrap();
 
     return () => {
       mounted = false;
     };
   }, []);
 
+  const updateAlertStatus = async (id: string, status: 'acknowledged' | 'dismissed') => {
+    try {
+      await fetch(`/api/admin/alerts/${id}`, {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ status }),
+      });
+      setAlerts((prev) => prev.filter((a) => a._id !== id));
+    } catch (err) {
+      console.error(err);
+      message.error('操作失敗');
+    }
+  };
+
   return (
     <section>
       <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>後台儀表板</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>快速掌握系統狀態與常用管理操作</p>
+        <h1 style={{ fontSize: 28, marginBottom: 8 }}>Dashboard</h1>
+        <p style={{ color: 'rgba(0,0,0,0.45)' }}>掌握本月營收、成本與毛利，隨時知道該不該重新報價</p>
       </div>
 
-      <Row gutter={[16, 16]}>
-        {/* <Col xs={24} sm={12} lg={8}>
-          <Card variant="borderless">
-            {loading ? (
-              <Skeleton active paragraph={{ rows: 1 }} />
-            ) : (
-              <Statistic title="會員總數" value={counts.userTotal} />
-            )}
-          </Card>
-        </Col> */}
+      <SummaryCards summary={summary} loading={summaryLoading} />
 
-        <Col xs={24} sm={12} lg={8}>
-          <Card variant="borderless">
-            {loading ? (
-              <Skeleton active paragraph={{ rows: 1 }} />
-            ) : (
-              <Statistic title="管理員帳號" value={counts.adminTotal} />
-            )}
-          </Card>
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24} lg={14}>
+          <AlertBanner
+            alerts={alerts}
+            loading={alertsLoading}
+            refreshing={refreshing}
+            onRefresh={refreshAlerts}
+            onAcknowledge={(id) => updateAlertStatus(id, 'acknowledged')}
+            onDismiss={(id) => updateAlertStatus(id, 'dismissed')}
+          />
+        </Col>
+        <Col xs={24} lg={10}>
+          <CostBreakdownChart costByCategory={summary?.costByCategory || {}} />
+        </Col>
+      </Row>
+
+      <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
+        <Col xs={24} lg={12}>
+          <CostTrendPanel title="本月毛利率趨勢" metric="margin_rate" valueSuffix="%" />
+        </Col>
+        <Col xs={24} lg={12}>
+          <CostTrendPanel title="粉料成本趨勢" metric="material_cost" />
         </Col>
       </Row>
     </section>
