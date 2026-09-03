@@ -8,7 +8,7 @@ const PackagingItemSchema: Schema = new Schema(
   {
     packagingCode: { type: String, required: true, unique: true },
     name: { type: String, required: true },
-    type: { type: String, enum: PACKAGING_TYPES, default: 'other' },
+    type: { type: String, enum: PACKAGING_TYPES, default: 'packaging', index: true },
     unit: { type: String, default: '個' },
     currentUnitPrice: { type: Number, default: 0 },
     lastEffectiveDate: { type: Date },

@@ -7,8 +7,7 @@ import { Plus, ArrowLeft, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
-
-const TYPE_LABELS: Record<string, string> = { box: '紙箱', pallet: '棧板', foam: '泡棉', tape: '膠帶', other: '其他' };
+import { PACKAGING_TYPES, PACKAGING_TYPE_LABELS } from '@/models/schemas/packaging';
 
 interface PackagingItem {
   _id: string;
@@ -142,6 +141,7 @@ export default function PackagingDetailClient({ id }: { id: string }) {
               <h1 style={{ fontSize: 24, marginBottom: 4 }}>
                 {packaging.name}（{packaging.packagingCode}）
               </h1>
+              <Tag>{PACKAGING_TYPE_LABELS[packaging.type as keyof typeof PACKAGING_TYPE_LABELS] || packaging.type}</Tag>
             </div>
             <Space.Compact>
               <Button icon={<Pen size={14} />} onClick={openEditInfo}>
@@ -230,7 +230,7 @@ export default function PackagingDetailClient({ id }: { id: string }) {
             <Input />
           </Form.Item>
           <Form.Item name="type" label="類型">
-            <Select options={Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))} />
+            <Select options={PACKAGING_TYPES.map((value) => ({ value, label: PACKAGING_TYPE_LABELS[value] }))} />
           </Form.Item>
           <Form.Item name="unit" label="計價單位">
             <Input />

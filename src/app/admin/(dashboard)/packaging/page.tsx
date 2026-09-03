@@ -1,9 +1,10 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Switch, Table, Tag } from 'antd';
+import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Switch, Table, Tabs, Tag } from 'antd';
 import { Plus, Trash } from '@styled-icons/fa-solid';
+import { PACKAGING_TYPES, PACKAGING_TYPE_LABELS } from '@/models/schemas/packaging';
 
 interface PackagingItem {
   _id: string;
@@ -15,8 +16,6 @@ interface PackagingItem {
   isActive: boolean;
 }
 
-const TYPE_LABELS: Record<string, string> = { box: '紙箱', pallet: '棧板', foam: '泡棉', tape: '膠帶', other: '其他' };
-
 export default function PackagingPage() {
   const router = useRouter();
   const { message } = App.useApp();
@@ -25,6 +24,7 @@ export default function PackagingPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [activeType, setActiveType] = useState<string>('all');
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -52,6 +52,17 @@ export default function PackagingPage() {
       mounted = false;
     };
   }, [reloadToken, message]);
+
+  const filteredData = useMemo(() => {
+    if (activeType === 'all') return data;
+    return data.filter((item) => item.type === activeType);
+  }, [data, activeType]);
+
+  const countByType = useMemo(() => {
+    const counts: Record<string, number> = {};
+    for (const item of data) counts[item.type] = (counts[item.type] || 0) + 1;
+    return counts;
+  }, [data]);
 
   const onCreate = async () => {
     try {
@@ -93,23 +104,39 @@ export default function PackagingPage() {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
         <div>
           <h1 style={{ fontSize: 28, marginBottom: 8 }}>包材管理</h1>
-          <p style={{ color: 'rgba(0,0,0,0.45)' }}>維護包材單價，所有變動都會保留歷史版本</p>
+          <p style={{ color: 'rgba(0,0,0,0.45)' }}>包材、藥水、紙類分開管理，維護單價所有變動都會保留歷史版本</p>
         </div>
-        <Button type="primary" icon={<Plus size={14} />} onClick={() => setModalOpen(true)}>
-          新增包材
+        <Button
+          type="primary"
+          icon={<Plus size={14} />}
+          onClick={() => {
+            form.setFieldsValue({ type: activeType === 'all' ? 'packaging' : activeType });
+            setModalOpen(true);
+          }}
+        >
+          新增項目
         </Button>
       </div>
+
+      <Tabs
+        activeKey={activeType}
+        onChange={setActiveType}
+        items={[
+          { key: 'all', label: `全部 (${data.length})` },
+          ...PACKAGING_TYPES.map((t) => ({ key: t, label: `${PACKAGING_TYPE_LABELS[t]} (${countByType[t] || 0})` })),
+        ]}
+      />
 
       <Card variant="borderless">
         <Table
           rowKey="_id"
           loading={loading}
-          dataSource={data}
+          dataSource={filteredData}
           onRow={(record) => ({ onClick: () => router.push(`/admin/packaging/${record._id}`), style: { cursor: 'pointer' } })}
           columns={[
             { title: '編號', dataIndex: 'packagingCode', key: 'packagingCode' },
             { title: '名稱', dataIndex: 'name', key: 'name' },
-            { title: '類型', dataIndex: 'type', key: 'type', render: (v: string) => TYPE_LABELS[v] || v },
+            { title: '類別', dataIndex: 'type', key: 'type', render: (v: string) => <Tag>{PACKAGING_TYPE_LABELS[v as keyof typeof PACKAGING_TYPE_LABELS] || v}</Tag> },
             { title: '目前單價', dataIndex: 'currentUnitPrice', key: 'currentUnitPrice', render: (v: number, r) => `$${v?.toLocaleString() ?? 0} / ${r.unit}` },
             { title: '狀態', dataIndex: 'isActive', key: 'isActive', render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? '啟用中' : '停用'}</Tag> },
             {
@@ -118,7 +145,7 @@ export default function PackagingPage() {
               width: 64,
               render: (_: unknown, record: PackagingItem) => (
                 <Popconfirm
-                  title="確定要刪除這筆包材嗎？（歷史價格也會一併刪除）"
+                  title="確定要刪除這筆項目嗎？（歷史價格也會一併刪除）"
                   onConfirm={(e) => {
                     e?.stopPropagation();
                     onDelete(record._id);
@@ -135,18 +162,20 @@ export default function PackagingPage() {
         />
       </Card>
 
-      <Modal open={modalOpen} title="新增包材" onCancel={() => setModalOpen(false)} onOk={onCreate} confirmLoading={submitting}>
-        <Form form={form} layout="vertical" initialValues={{ unit: '個', type: 'other', isActive: true }}>
-          <Form.Item name="packagingCode" label="包材編號" rules={[{ required: true, message: '請輸入包材編號' }]}>
+      <Modal open={modalOpen} title="新增項目" onCancel={() => setModalOpen(false)} onOk={onCreate} confirmLoading={submitting}>
+        <Form
+          form={form}
+          layout="vertical"
+          initialValues={{ unit: '個', type: activeType === 'all' ? 'packaging' : activeType, isActive: true }}
+        >
+          <Form.Item name="packagingCode" label="編號" rules={[{ required: true, message: '請輸入編號' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="name" label="包材名稱" rules={[{ required: true, message: '請輸入包材名稱' }]}>
+          <Form.Item name="name" label="名稱" rules={[{ required: true, message: '請輸入名稱' }]}>
             <Input />
           </Form.Item>
-          <Form.Item name="type" label="類型">
-            <Select
-              options={Object.entries(TYPE_LABELS).map(([value, label]) => ({ value, label }))}
-            />
+          <Form.Item name="type" label="類別">
+            <Select options={PACKAGING_TYPES.map((value) => ({ value, label: PACKAGING_TYPE_LABELS[value] }))} />
           </Form.Item>
           <Form.Item name="unit" label="計價單位">
             <Input />
