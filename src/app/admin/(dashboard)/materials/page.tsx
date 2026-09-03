@@ -41,9 +41,11 @@ export default function MaterialsPage() {
         const res = await fetch('/api/admin/materials');
         const result = await res.json();
         if (!mounted) return;
+        if (!res.ok) throw new Error(result?.message || '讀取粉料資料失敗');
         setData(result?.data || []);
       } catch (err) {
         console.error(err);
+        if (mounted) message.error(err instanceof Error ? err.message : '讀取粉料資料失敗，請重新整理再試');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -54,7 +56,7 @@ export default function MaterialsPage() {
     return () => {
       mounted = false;
     };
-  }, [reloadToken]);
+  }, [reloadToken, message]);
 
   const sortedData = useMemo(() => {
     if (groupBy === 'none') return data;

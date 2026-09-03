@@ -57,13 +57,15 @@ export default function RateListPanel({
     try {
       const res = await fetch(basePath);
       const result = await res.json();
+      if (!res.ok) throw new Error(result?.message || '讀取資料失敗');
       setItems(result?.data || []);
     } catch (err) {
       console.error(err);
+      message.error(err instanceof Error ? err.message : '讀取資料失敗，請重新整理再試');
     } finally {
       setLoading(false);
     }
-  }, [basePath]);
+  }, [basePath, message]);
 
   useEffect(() => {
     let mounted = true;

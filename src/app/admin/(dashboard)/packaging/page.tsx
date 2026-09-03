@@ -36,9 +36,11 @@ export default function PackagingPage() {
         const res = await fetch('/api/admin/packaging');
         const result = await res.json();
         if (!mounted) return;
+        if (!res.ok) throw new Error(result?.message || '讀取包材資料失敗');
         setData(result?.data || []);
       } catch (err) {
         console.error(err);
+        if (mounted) message.error(err instanceof Error ? err.message : '讀取包材資料失敗，請重新整理再試');
       } finally {
         if (mounted) setLoading(false);
       }
@@ -49,7 +51,7 @@ export default function PackagingPage() {
     return () => {
       mounted = false;
     };
-  }, [reloadToken]);
+  }, [reloadToken, message]);
 
   const onCreate = async () => {
     try {

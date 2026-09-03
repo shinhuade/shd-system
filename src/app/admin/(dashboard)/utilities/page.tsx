@@ -40,13 +40,15 @@ export default function UtilitiesPage() {
     try {
       const res = await fetch('/api/admin/utility-rates');
       const result = await res.json();
+      if (!res.ok) throw new Error(result?.message || '讀取水電瓦斯資料失敗');
       setRates(result?.data || []);
     } catch (err) {
       console.error(err);
+      message.error(err instanceof Error ? err.message : '讀取水電瓦斯資料失敗，請重新整理再試');
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [message]);
 
   useEffect(() => {
     let mounted = true;
