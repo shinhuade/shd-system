@@ -105,7 +105,7 @@ export default function PackagingPage() {
   return (
     <section>
       <PageHeader
-        title="包材管理"
+        title="包材藥水成本"
         description="包材、藥水、紙類分開管理，維護單價所有變動都會保留歷史版本"
         extra={
           <Button

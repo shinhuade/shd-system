@@ -132,7 +132,7 @@ export default function PackagingDetailClient({ id }: { id: string }) {
   return (
     <section>
       <Button type="text" icon={<ArrowLeft size={14} />} onClick={() => router.push('/admin/packaging')} style={{ marginBottom: 12, paddingLeft: 0 }}>
-        返回包材管理
+        返回包材藥水成本
       </Button>
 
       {packaging && (

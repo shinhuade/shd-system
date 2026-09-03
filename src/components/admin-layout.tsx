@@ -35,7 +35,7 @@ const menuItems = [
     icon: <Warehouse size={16} />,
     children: [
       { label: '粉料管理', key: '/admin/materials', icon: <Flask size={16} /> },
-      { label: '包材管理', key: '/admin/packaging', icon: <Box size={16} /> },
+      { label: '包材藥水成本', key: '/admin/packaging', icon: <Box size={16} /> },
       { label: '水電瓦斯', key: '/admin/utilities', icon: <Bolt size={16} /> },
       { label: '成本管理', key: '/admin/cost-management', icon: <Coins size={16} /> },
     ],
