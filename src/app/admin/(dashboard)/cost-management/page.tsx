@@ -4,6 +4,8 @@ import { Tabs } from 'antd';
 import PageHeader from '@/components/page-header';
 import RateListPanel from '@/components/cost-management/rate-list-panel';
 import ProcessingParamsPanel from '@/components/cost-management/processing-params-panel';
+import ProductionRecordForm from '@/components/cost-management/production-record-form';
+import CostModelPanel from '@/components/cost-management/cost-model-panel';
 import MonthlyCostRecordForm from '@/components/cost-management/monthly-cost-record-form';
 import WorkpieceFormulaPanel from '@/components/cost-management/workpiece-formula-panel';
 import { FIXED_COST_CATEGORIES } from '@/models/schemas/fixed-cost';
@@ -21,10 +23,16 @@ const FIXED_COST_CATEGORY_LABELS: Record<string, string> = {
 export default function CostManagementPage() {
   return (
     <section>
-      <PageHeader title="成本管理" description="人工、固定成本、加工參數與每月實際成本登錄，皆保留完整歷史版本" />
+      <PageHeader
+        title="成本管理"
+        description="每月成本與生產資料輸入後，系統會自動更新成本模型，精算報價直接套用"
+      />
 
       <Tabs
         items={[
+          { key: 'monthly-records', label: '每月成本紀錄', children: <MonthlyCostRecordForm /> },
+          { key: 'production-records', label: '每月生產紀錄', children: <ProductionRecordForm /> },
+          { key: 'cost-model', label: '成本模型', children: <CostModelPanel /> },
           {
             key: 'labor',
             label: '人工成本',
@@ -67,7 +75,6 @@ export default function CostManagementPage() {
           },
           { key: 'processing-params', label: '加工參數設定', children: <ProcessingParamsPanel /> },
           { key: 'formula-templates', label: '才數公式範本', children: <WorkpieceFormulaPanel /> },
-          { key: 'monthly-records', label: '本月成本登錄', children: <MonthlyCostRecordForm /> },
         ]}
       />
     </section>

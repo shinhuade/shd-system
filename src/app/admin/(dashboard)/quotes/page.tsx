@@ -12,6 +12,7 @@ import ResponsiveTable from '@/components/responsive-table';
 interface QuoteRow {
   _id: string;
   quotationNo: string;
+  quoteMode?: 'wizard' | 'quick' | 'precision';
   quotationDate: string;
   status: string;
   chosenPrice: number;
@@ -94,6 +95,11 @@ export default function QuotesListPage() {
               render: (v: string, record) => (
                 <span>
                   {v}
+                  {record.quoteMode === 'precision' && (
+                    <Tag color="blue" style={{ marginLeft: 8 }}>
+                      精算
+                    </Tag>
+                  )}
                   <MobileOnlyCustomer>{record.customer?.name ? `　${record.customer.name}` : ''}</MobileOnlyCustomer>
                 </span>
               ),

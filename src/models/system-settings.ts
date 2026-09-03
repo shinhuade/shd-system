@@ -17,6 +17,8 @@ const SystemSettingsSchema: Schema = new Schema(
     transferEfficiencyPercent: { type: Number, required: true },
     standardMonthlyOperatingHours: { type: Number, required: true },
     standardCycleHoursPerBatch: { type: Number, required: true },
+    // 1 尺 = 幾才；未設定時快速報價的「一尺單價」無法計算（不預設任何猜測值）
+    caiPerFoot: { type: Number, default: null },
     effectiveDate: { type: Date, required: true, index: true },
     note: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: 'Admin' },

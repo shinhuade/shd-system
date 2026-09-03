@@ -1,6 +1,6 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { commonOptions } from '@/lib/db';
-import { CostRecordInput, COST_RECORD_CATEGORIES } from './schemas/cost-record';
+import { CostRecordInput } from './schemas/cost-record';
 
 export interface ICostRecord extends Omit<CostRecordInput, 'createdBy'>, Document {
   createdBy?: mongoose.Types.ObjectId;
@@ -8,7 +8,9 @@ export interface ICostRecord extends Omit<CostRecordInput, 'createdBy'>, Documen
 
 const CostRecordSchema: Schema = new Schema(
   {
-    category: { type: String, enum: COST_RECORD_CATEGORIES, required: true },
+    // 類別不用 enum：除了內建類別外，使用者可在「每月成本紀錄」新增自訂成本項目
+    category: { type: String, required: true },
+    label: { type: String },
     periodMonth: { type: String, required: true },
     amount: { type: Number, required: true },
     note: { type: String },
