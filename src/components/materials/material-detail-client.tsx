@@ -2,16 +2,18 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, Form, Input, Modal, Row, Statistic, Switch, Tag } from 'antd';
+import { App, Button, Card, Col, Form, Input, Modal, Row, Select, Space, Statistic, Switch, Tag } from 'antd';
 import { Plus, ArrowLeft, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
+import { COLOR_FAMILY_OPTIONS } from '@/models/schemas/material';
 
 interface Material {
   _id: string;
   materialCode: string;
   colorName: string;
+  colorFamily?: string;
   colorHex?: string;
   supplierName?: string;
   supplierContact?: string;
@@ -143,9 +145,12 @@ export default function MaterialDetailClient({ id }: { id: string }) {
               <h1 style={{ fontSize: 24, marginBottom: 4 }}>
                 {material.colorName}（{material.materialCode}）
               </h1>
-              <p style={{ color: 'rgba(0,0,0,0.45)' }}>{material.supplierName || '未設定廠商'}</p>
+              <p style={{ color: 'rgba(0,0,0,0.45)' }}>
+                {material.supplierName || '未設定廠商'}
+                {material.colorFamily && <Tag style={{ marginLeft: 8 }}>{material.colorFamily}</Tag>}
+              </p>
             </div>
-            <Button.Group>
+            <Space.Compact>
               <Button icon={<Pen size={14} />} onClick={openEditInfo}>
                 編輯基本資料
               </Button>
@@ -159,7 +164,7 @@ export default function MaterialDetailClient({ id }: { id: string }) {
               >
                 新增價格版本
               </Button>
-            </Button.Group>
+            </Space.Compact>
           </div>
 
           <Row gutter={[16, 16]}>
@@ -242,6 +247,9 @@ export default function MaterialDetailClient({ id }: { id: string }) {
           </Form.Item>
           <Form.Item name="colorName" label="粉料顏色" rules={[{ required: true, message: '請輸入粉料顏色' }]}>
             <Input />
+          </Form.Item>
+          <Form.Item name="colorFamily" label="色系（選填）">
+            <Select allowClear options={COLOR_FAMILY_OPTIONS.map((v) => ({ value: v, label: v }))} />
           </Form.Item>
           <Form.Item name="colorHex" label="色票色碼（選填）">
             <Input placeholder="#RRGGBB" />

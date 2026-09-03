@@ -1,14 +1,16 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Form, Input, Modal, Popconfirm, Space, Switch, Table, Tag } from 'antd';
+import { App, Button, Card, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Switch, Table, Tag } from 'antd';
 import { Plus, Trash } from '@styled-icons/fa-solid';
+import { COLOR_FAMILY_OPTIONS } from '@/models/schemas/material';
 
 interface Material {
   _id: string;
   materialCode: string;
   colorName: string;
+  colorFamily?: string;
   colorHex?: string;
   supplierName?: string;
   unit: string;
@@ -16,6 +18,8 @@ interface Material {
   currentLossRatePercent?: number | null;
   isActive: boolean;
 }
+
+type GroupBy = 'none' | 'colorFamily' | 'supplierName';
 
 export default function MaterialsPage() {
   const router = useRouter();
@@ -25,6 +29,7 @@ export default function MaterialsPage() {
   const [modalOpen, setModalOpen] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [reloadToken, setReloadToken] = useState(0);
+  const [groupBy, setGroupBy] = useState<GroupBy>('none');
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -50,6 +55,18 @@ export default function MaterialsPage() {
       mounted = false;
     };
   }, [reloadToken]);
+
+  const sortedData = useMemo(() => {
+    if (groupBy === 'none') return data;
+    const collator = new Intl.Collator('zh-Hant');
+    return [...data].sort((a, b) => {
+      const groupA = (a[groupBy] as string) || '（未分類）';
+      const groupB = (b[groupBy] as string) || '（未分類）';
+      const groupCompare = collator.compare(groupA, groupB);
+      if (groupCompare !== 0) return groupCompare;
+      return collator.compare(a.colorName, b.colorName);
+    });
+  }, [data, groupBy]);
 
   const onCreate = async () => {
     try {
@@ -88,7 +105,7 @@ export default function MaterialsPage() {
 
   return (
     <section>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
         <div>
           <h1 style={{ fontSize: 28, marginBottom: 8 }}>粉料管理</h1>
           <p style={{ color: 'rgba(0,0,0,0.45)' }}>維護粉料單價與損耗率，所有變動都會保留歷史版本</p>
@@ -98,18 +115,33 @@ export default function MaterialsPage() {
         </Button>
       </div>
 
+      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
+        <span style={{ color: 'rgba(0,0,0,0.45)' }}>排列整理：</span>
+        <Segmented
+          value={groupBy}
+          onChange={(v) => setGroupBy(v as GroupBy)}
+          options={[
+            { label: '預設', value: 'none' },
+            { label: '依色系', value: 'colorFamily' },
+            { label: '依廠商', value: 'supplierName' },
+          ]}
+        />
+      </div>
+
       <Card variant="borderless">
         <Table
           rowKey="_id"
           loading={loading}
-          dataSource={data}
+          dataSource={sortedData}
+          pagination={{ pageSize: 20 }}
           onRow={(record) => ({ onClick: () => router.push(`/admin/materials/${record._id}`), style: { cursor: 'pointer' } })}
           columns={[
-            { title: '編號', dataIndex: 'materialCode', key: 'materialCode' },
+            { title: '編號', dataIndex: 'materialCode', key: 'materialCode', sorter: (a, b) => a.materialCode.localeCompare(b.materialCode) },
             {
               title: '顏色',
               dataIndex: 'colorName',
               key: 'colorName',
+              sorter: (a, b) => a.colorName.localeCompare(b.colorName),
               render: (v: string, record) => (
                 <Space>
                   {record.colorHex && <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', background: record.colorHex, border: '1px solid #ddd' }} />}
@@ -117,8 +149,26 @@ export default function MaterialsPage() {
                 </Space>
               ),
             },
-            { title: '廠商', dataIndex: 'supplierName', key: 'supplierName' },
-            { title: '目前單價', dataIndex: 'currentPricePerKg', key: 'currentPricePerKg', render: (v: number, r) => `$${v?.toLocaleString() ?? 0} / ${r.unit}` },
+            {
+              title: '色系',
+              dataIndex: 'colorFamily',
+              key: 'colorFamily',
+              sorter: (a, b) => (a.colorFamily || '').localeCompare(b.colorFamily || ''),
+              render: (v?: string) => (v ? <Tag>{v}</Tag> : '-'),
+            },
+            {
+              title: '廠商',
+              dataIndex: 'supplierName',
+              key: 'supplierName',
+              sorter: (a, b) => (a.supplierName || '').localeCompare(b.supplierName || ''),
+            },
+            {
+              title: '目前單價',
+              dataIndex: 'currentPricePerKg',
+              key: 'currentPricePerKg',
+              sorter: (a, b) => a.currentPricePerKg - b.currentPricePerKg,
+              render: (v: number, r) => `$${v?.toLocaleString() ?? 0} / ${r.unit}`,
+            },
             { title: '損耗率', dataIndex: 'currentLossRatePercent', key: 'currentLossRatePercent', render: (v?: number | null) => (v == null ? '(使用預設)' : `${v}%`) },
             { title: '狀態', dataIndex: 'isActive', key: 'isActive', render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? '啟用中' : '停用'}</Tag> },
             {
@@ -146,11 +196,14 @@ export default function MaterialsPage() {
 
       <Modal open={modalOpen} title="新增粉料" onCancel={() => setModalOpen(false)} onOk={onCreate} confirmLoading={submitting}>
         <Form form={form} layout="vertical" initialValues={{ unit: 'kg', isActive: true }}>
-          <Form.Item name="materialCode" label="粉料編號" rules={[{ required: true, message: '請輸入粉料編號' }]}>
-            <Input />
+          <Form.Item name="materialCode" label="粉料編號（英文/數字）" rules={[{ required: true, message: '請輸入粉料編號' }]}>
+            <Input placeholder="例如：SP102353C" />
           </Form.Item>
-          <Form.Item name="colorName" label="粉料顏色" rules={[{ required: true, message: '請輸入粉料顏色' }]}>
-            <Input />
+          <Form.Item name="colorName" label="粉料顏色（中文）" rules={[{ required: true, message: '請輸入粉料顏色' }]}>
+            <Input placeholder="例如：古銅金" />
+          </Form.Item>
+          <Form.Item name="colorFamily" label="色系（選填）">
+            <Select allowClear options={COLOR_FAMILY_OPTIONS.map((v) => ({ value: v, label: v }))} />
           </Form.Item>
           <Form.Item name="colorHex" label="色票色碼（選填）">
             <Input placeholder="#RRGGBB" />

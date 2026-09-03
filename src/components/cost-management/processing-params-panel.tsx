@@ -151,7 +151,7 @@ export default function ProcessingParamsPanel() {
             {FIELDS.map((f) => (
               <Col span={12} key={f.name}>
                 <Form.Item name={f.name} label={f.label} rules={[{ required: true, message: `請輸入${f.label}` }]}>
-                  <InputNumber style={{ width: '100%' }} min={0} addonBefore="$" />
+                  <InputNumber style={{ width: '100%' }} min={0} prefix="$" />
                 </Form.Item>
               </Col>
             ))}

@@ -93,7 +93,7 @@ export default function MonthlyCostRecordForm() {
             <InputNumber
               style={{ width: '100%' }}
               min={0}
-              addonBefore="$"
+              prefix="$"
               value={amounts[c.key] ?? 0}
               onChange={(v) => setAmounts((prev) => ({ ...prev, [c.key]: v ?? 0 }))}
             />

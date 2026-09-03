@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, Form, Input, Modal, Row, Select, Statistic, Switch, Tag } from 'antd';
+import { App, Button, Card, Col, Form, Input, Modal, Row, Select, Space, Statistic, Switch, Tag } from 'antd';
 import { Plus, ArrowLeft, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
@@ -143,7 +143,7 @@ export default function PackagingDetailClient({ id }: { id: string }) {
                 {packaging.name}（{packaging.packagingCode}）
               </h1>
             </div>
-            <Button.Group>
+            <Space.Compact>
               <Button icon={<Pen size={14} />} onClick={openEditInfo}>
                 編輯基本資料
               </Button>
@@ -157,7 +157,7 @@ export default function PackagingDetailClient({ id }: { id: string }) {
               >
                 新增價格版本
               </Button>
-            </Button.Group>
+            </Space.Compact>
           </div>
 
           <Row gutter={[16, 16]}>

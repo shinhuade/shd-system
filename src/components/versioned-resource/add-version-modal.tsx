@@ -75,7 +75,7 @@ export default function AddVersionModal({
             {field.type === 'text' ? (
               <Input />
             ) : (
-              <InputNumber style={{ width: '100%' }} min={0} max={field.type === 'percent' ? 100 : undefined} addonAfter={field.type === 'percent' ? '%' : undefined} />
+              <InputNumber style={{ width: '100%' }} min={0} max={field.type === 'percent' ? 100 : undefined} suffix={field.type === 'percent' ? '%' : undefined} />
             )}
           </Form.Item>
         ))}

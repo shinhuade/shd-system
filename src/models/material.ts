@@ -8,6 +8,7 @@ const MaterialSchema: Schema = new Schema(
   {
     materialCode: { type: String, required: true, unique: true },
     colorName: { type: String, required: true },
+    colorFamily: { type: String, index: true },
     colorHex: { type: String },
     supplierName: { type: String },
     supplierContact: { type: String },

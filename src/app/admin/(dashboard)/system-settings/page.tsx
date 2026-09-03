@@ -121,7 +121,7 @@ export default function SystemSettingsPage() {
             {FIELDS.map((f) => (
               <Col xs={24} sm={12} lg={8} key={f.name}>
                 <Form.Item name={f.name} label={f.label} rules={[{ required: true, message: `請輸入${f.label}` }]}>
-                  <InputNumber style={{ width: '100%' }} min={0} max={f.max} addonAfter={f.suffix} />
+                  <InputNumber style={{ width: '100%' }} min={0} max={f.max} suffix={f.suffix} />
                 </Form.Item>
               </Col>
             ))}
