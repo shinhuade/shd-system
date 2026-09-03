@@ -23,6 +23,7 @@ import {
   Tag,
 } from 'antd';
 import { computeTotalAreaCm2, computeCaiCount, buildFormulaCode } from '@/lib/pricing/area-formula';
+import { suggestBatchCount } from '@/lib/pricing/processing-cost';
 
 interface FormulaTemplate {
   _id: string;
@@ -138,6 +139,8 @@ export default function QuotationWizard() {
     batchCount: 1,
   };
   const [workpiece, setWorkpiece] = useState<WorkpieceForm>(emptyWorkpiece);
+  const [batchCountManuallySet, setBatchCountManuallySet] = useState(false);
+  const [lastAppliedBatchSuggestion, setLastAppliedBatchSuggestion] = useState<number | undefined>(undefined);
   const update = (patch: Partial<WorkpieceForm>) => setWorkpiece((prev) => ({ ...prev, ...patch }));
 
   const [result, setResult] = useState<CalcResult | null>(null);
@@ -351,6 +354,8 @@ export default function QuotationWizard() {
               setStep(0);
               setResult(null);
               setWorkpiece(emptyWorkpiece);
+              setBatchCountManuallySet(false);
+              setLastAppliedBatchSuggestion(undefined);
             }}
           >
             建立下一張報價
@@ -361,6 +366,18 @@ export default function QuotationWizard() {
   }
 
   const selectedMaterial = materials.find((m) => m._id === workpiece.materialId);
+
+  // 依「掛件數 × 烤爐容量」推算這個數量大概需要幾個批次，避免使用者忘記調整時
+  // 整批（例如 2 小時）的人工/瓦斯/電/水成本被整筆算到單一工件上。
+  const suggestedBatchCount = suggestBatchCount(workpiece.quantity, workpiece.hangCount, workpiece.ovenCapacityPerBatch);
+  if (
+    !batchCountManuallySet &&
+    suggestedBatchCount !== undefined &&
+    suggestedBatchCount !== lastAppliedBatchSuggestion
+  ) {
+    setLastAppliedBatchSuggestion(suggestedBatchCount);
+    setWorkpiece((prev) => ({ ...prev, batchCount: suggestedBatchCount }));
+  }
 
   const isCustomFormula = workpiece.workpieceFormulaTemplateId === CUSTOM_TEMPLATE_VALUE;
   const currentFaces = { lwFaces: workpiece.lwFaces, lhFaces: workpiece.lhFaces, whFaces: workpiece.whFaces };
@@ -610,8 +627,38 @@ export default function QuotationWizard() {
                       </Form.Item>
                     </Col>
                     <Col span={8}>
-                      <Form.Item label="生產批次數">
-                        <InputNumber style={{ width: '100%' }} min={1} value={workpiece.batchCount} onChange={(v) => update({ batchCount: v ?? 1 })} />
+                      <Form.Item
+                        label="生產批次數"
+                        help={
+                          suggestedBatchCount !== undefined ? (
+                            <span>
+                              建議 {suggestedBatchCount} 批（依掛件數×烤爐容量估算）
+                              {batchCountManuallySet && (
+                                <a
+                                  style={{ marginLeft: 6 }}
+                                  onClick={() => {
+                                    setBatchCountManuallySet(false);
+                                    setLastAppliedBatchSuggestion(undefined);
+                                  }}
+                                >
+                                  套用建議值
+                                </a>
+                              )}
+                            </span>
+                          ) : (
+                            '請填掛件數與烤爐容量以自動估算，否則請自行確認批次數是否合理'
+                          )
+                        }
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={1}
+                          value={workpiece.batchCount}
+                          onChange={(v) => {
+                            setBatchCountManuallySet(true);
+                            update({ batchCount: v ?? 1 });
+                          }}
+                        />
                       </Form.Item>
                     </Col>
                   </Row>
