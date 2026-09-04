@@ -152,6 +152,19 @@ export default function PrecisionQuotePanel() {
   const result = data?.result;
   const costModel = data?.costModel;
 
+  // 還缺哪些輸入就直接列出來，避免使用者盯著空白的試算結果不知道要補什麼
+  const missingInputs = [
+    !cai.hasDimensions && '工件尺寸（至少填長，加上寬或高）',
+    !cai.hasFaces && '面數公式（選一個型態或自訂面數）',
+    !materialId && '使用粉體',
+    !(filmThicknessUm > 0) && '膜厚',
+  ].filter(Boolean) as string[];
+
+  /** 缺系統參數要去系統設定，缺每月成本／生產資料要去成本管理 */
+  const errorTarget = calcError?.includes('系統設定') || calcError?.includes('系統參數')
+    ? { label: '前往系統設定', href: '/admin/system-settings' }
+    : { label: '前往成本管理', href: '/admin/cost-management' };
+
   const costRows = useMemo(() => {
     if (!result) return [];
     return [
@@ -304,22 +317,55 @@ export default function PrecisionQuotePanel() {
           </Col>
 
           <Col xs={{ span: 24, order: 2 }} lg={{ span: 11, order: 2 }}>
-            <Card variant="borderless" title="精算結果" loading={calculating}>
+            <Card
+              variant="borderless"
+              title="精算結果"
+              loading={calculating && !result}
+              extra={
+                result ? (
+                  <Button size="small" loading={calculating} onClick={calculate}>
+                    重新試算
+                  </Button>
+                ) : null
+              }
+            >
               {calcError && (
-                <Alert
-                  type="warning"
-                  showIcon
-                  message={calcError}
-                  action={
-                    <Button size="small" onClick={() => router.push('/admin/cost-management')}>
-                      前往成本管理
+                <>
+                  <Alert type="warning" showIcon message={calcError} />
+                  <div style={{ display: 'flex', gap: 8, marginTop: 12, flexWrap: 'wrap' }}>
+                    <Button onClick={calculate}>重新試算</Button>
+                    <Button type="primary" onClick={() => router.push(errorTarget.href)}>
+                      {errorTarget.label}
                     </Button>
-                  }
-                />
+                  </div>
+                </>
               )}
 
               {!calcError && !result && (
-                <p style={{ color: 'rgba(0,0,0,0.45)' }}>請輸入尺寸、選擇面數公式與粉體，系統會自動試算</p>
+                <div>
+                  <p style={{ color: 'rgba(0,0,0,0.45)', marginBottom: missingInputs.length ? 8 : 0 }}>
+                    填好以下項目就會自動試算：
+                  </p>
+                  <ul style={{ paddingLeft: 18, color: 'rgba(0,0,0,0.65)', lineHeight: 1.9 }}>
+                    {missingInputs.map((item) => (
+                      <li key={item}>{item}</li>
+                    ))}
+                  </ul>
+                  {materials.length === 0 && !optionsLoading && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginTop: 8 }}
+                      message="尚未建立粉體資料"
+                      description="精算報價需要粉體單價，請先到「粉料管理」新增粉體與價格。"
+                      action={
+                        <Button size="small" onClick={() => router.push('/admin/materials')}>
+                          前往粉料管理
+                        </Button>
+                      }
+                    />
+                  )}
+                </div>
               )}
 
               {result && costModel && (

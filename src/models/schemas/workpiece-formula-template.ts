@@ -34,7 +34,8 @@ export const DEFAULT_FORMULA_TEMPLATES: {
   whFaces: number;
   hint: string;
 }[] = [
-  { name: '長條型', lwFaces: 2, lhFaces: 2, whFaces: 0, hint: '前後 2 面、左右 2 面，兩端斷面不計' },
   { name: '箱體型', lwFaces: 2, lhFaces: 2, whFaces: 2, hint: '前後、左右、上下各 2 面（六面全噴）' },
+  { name: '無蓋箱體', lwFaces: 2, lhFaces: 2, whFaces: 1, hint: '前後 2 面、左右 2 面、上下 1 面' },
+  { name: '長條型', lwFaces: 2, lhFaces: 2, whFaces: 0, hint: '前後 2 面、左右 2 面，兩端斷面不計' },
   { name: '平板型', lwFaces: 2, lhFaces: 0, whFaces: 0, hint: '只計前後兩個大面' },
 ];
