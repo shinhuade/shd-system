@@ -397,6 +397,22 @@ export default function PrecisionQuotePanel() {
                     </div>
                   </SummaryList>
 
+                  {/* 粉體用量算出 0 時粉體成本一定是 0，直接說明原因，不要讓使用者看到莫名其妙的 $0 */}
+                  {result.powderUsageKg === 0 && (
+                    <Alert
+                      type="warning"
+                      showIcon
+                      style={{ marginTop: 12 }}
+                      message="粉體用量算出 0，粉體成本不會計入"
+                      description="請確認「系統設定」的粉料用量係數（粉體密度 g/m²/μm）與噴塗轉移率都不是 0，膜厚也要大於 0。"
+                      action={
+                        <Button size="small" onClick={() => router.push('/admin/system-settings')}>
+                          前往系統設定
+                        </Button>
+                      }
+                    />
+                  )}
+
                   <Divider />
 
                   <SummaryList>
