@@ -1,4 +1,5 @@
 import { z } from 'zod';
+import { QUOTE_MODES } from './quotation-item';
 
 export const QUOTATION_STATUSES = ['draft', 'final'] as const;
 export const QUOTATION_TIERS = ['cost', 'standard', 'high_margin', 'custom'] as const;
@@ -6,6 +7,8 @@ export const QUOTATION_TIERS = ['cost', 'standard', 'high_margin', 'custom'] as 
 export const QuotationSchema = z
   .object({
     quotationNo: z.string({ message: '報價單號必填' }).trim().min(1),
+    /** 報價來源模式，供報價紀錄區分「精算報價」與舊版報價精靈 */
+    quoteMode: z.enum(QUOTE_MODES).default('wizard'),
     customerId: z.string({ message: '客戶必填' }),
     quotationDate: z.coerce.date({ message: '報價日期必填' }),
     status: z.enum(QUOTATION_STATUSES).default('draft'),

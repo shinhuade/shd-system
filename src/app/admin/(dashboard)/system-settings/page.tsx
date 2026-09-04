@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Statistic, Table } from 'antd';
+import PageHeader from '@/components/page-header';
 import dayjs from 'dayjs';
 
-const FIELDS: { name: string; label: string; suffix?: string; max?: number }[] = [
+const FIELDS: { name: string; label: string; suffix?: string; max?: number; optional?: boolean; hint?: string }[] = [
   { name: 'defaultMaterialLossRatePercent', label: '預設粉料損耗率', suffix: '%', max: 100 },
   { name: 'standardMarkupPercent', label: '標準報價加成率', suffix: '%' },
   { name: 'highMarginMarkupPercent', label: '高毛利報價加成率', suffix: '%' },
@@ -14,6 +15,13 @@ const FIELDS: { name: string; label: string; suffix?: string; max?: number }[] =
   { name: 'transferEfficiencyPercent', label: '噴塗轉移率', suffix: '%', max: 100 },
   { name: 'standardMonthlyOperatingHours', label: '每月標準工時', suffix: '小時' },
   { name: 'standardCycleHoursPerBatch', label: '每批次標準加工工時', suffix: '小時' },
+  {
+    name: 'caiPerFoot',
+    label: '尺才換算（1 尺 = 幾才）',
+    suffix: '才',
+    optional: true,
+    hint: '未填寫時，快速報價的「一尺單價」不會計算。系統不會自行猜測換算基準。',
+  },
 ];
 
 interface SystemSettings {
@@ -95,17 +103,22 @@ export default function SystemSettingsPage() {
 
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>系統設定</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>報價引擎使用的全域係數（加成率、損耗率預設值、漲價提醒門檻等），每次調整都保留版本</p>
-      </div>
+      <PageHeader
+        title="系統設定"
+        description="報價引擎使用的全域係數（加成率、損耗率預設值、漲價提醒門檻等），每次調整都保留版本"
+      />
 
       {current && (
         <Card variant="borderless" style={{ marginBottom: 16 }} loading={loading}>
           <Row gutter={[16, 16]}>
             {FIELDS.map((f) => (
               <Col xs={12} sm={8} lg={24 / 5} key={f.name}>
-                <Statistic title={f.label} value={(current[f.name] as number) ?? 0} suffix={f.suffix} styles={{ content: { fontSize: 16 } }} />
+                <Statistic
+                  title={f.label}
+                  value={(current[f.name] as number) ?? (f.optional ? '未設定' : 0)}
+                  suffix={current[f.name] != null ? f.suffix : undefined}
+                  styles={{ content: { fontSize: 16 } }}
+                />
               </Col>
             ))}
           </Row>
@@ -120,7 +133,12 @@ export default function SystemSettingsPage() {
           <Row gutter={16}>
             {FIELDS.map((f) => (
               <Col xs={24} sm={12} lg={8} key={f.name}>
-                <Form.Item name={f.name} label={f.label} rules={[{ required: true, message: `請輸入${f.label}` }]}>
+                <Form.Item
+                  name={f.name}
+                  label={f.label}
+                  extra={f.hint}
+                  rules={f.optional ? undefined : [{ required: true, message: `請輸入${f.label}` }]}
+                >
                   <InputNumber style={{ width: '100%' }} min={0} max={f.max} suffix={f.suffix} />
                 </Form.Item>
               </Col>
@@ -129,7 +147,7 @@ export default function SystemSettingsPage() {
           <Form.Item name="note" label="備註">
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Button type="primary" loading={submitting} onClick={onSubmit}>
+          <Button type="primary" block loading={submitting} onClick={onSubmit}>
             儲存新版本
           </Button>
         </Form>
@@ -142,7 +160,7 @@ export default function SystemSettingsPage() {
           loading={loading}
           dataSource={history}
           pagination={{ pageSize: 6 }}
-          scroll={{ x: true }}
+          scroll={{ x: 'max-content' }}
           columns={[
             { title: '生效日期', dataIndex: 'effectiveDate', key: 'effectiveDate', render: (v: string) => dayjs(v).format('YYYY-MM-DD') },
             ...FIELDS.map((f) => ({

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { Alert, Card, Col, Row, Skeleton, Statistic } from 'antd';
+import PageHeader from '@/components/page-header';
 
 const METRICS = [
   { key: 'material_cost', label: '粉料成本' },
@@ -85,10 +86,7 @@ export default function AnnualReportPage() {
 
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>年度報表</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>{new Date().getFullYear()} 年度成本與去年同期比較</p>
-      </div>
+      <PageHeader title="年度報表" description={`${new Date().getFullYear()} 年度成本與去年同期比較`} />
 
       {loading ? (
         <Skeleton active paragraph={{ rows: 6 }} />

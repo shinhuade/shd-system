@@ -1,11 +1,12 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { App, Button, Form, Input, Modal, Popconfirm, Select, Space, Table } from 'antd';
+import { App, Button, Col, Form, Input, Modal, Popconfirm, Row, Select, Space } from 'antd';
 import { Plus, Pen, Trash } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal, { VersionField } from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
+import ResponsiveTable from '@/components/responsive-table';
 
 export interface CreateField {
   name: string;
@@ -202,34 +203,40 @@ export default function RateListPanel({
         </Button>
       </div>
 
-      <Table
+      <ResponsiveTable<RateItem>
         rowKey="_id"
         loading={loading}
         dataSource={items}
+        emptyText="尚未建立任何項目"
         expandable={{
           expandedRowKeys: expandedId ? [expandedId] : [],
           onExpand,
           expandedRowRender: (record) => (
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
+            /* 手機版改為上下堆疊，趨勢圖與歷史價格都能看完整 */
+            <Row gutter={[16, 16]}>
+              <Col xs={24} md={12}>
               <TrendLineChart
                 data={[...(history[record._id] || [])].reverse().map((h) => ({ period: String(h.effectiveDate).slice(0, 10), value: h[versionValueField] as number }))}
               />
-              <PriceHistoryTable
-                history={history[record._id] || []}
-                valueField={versionValueField}
-                valueLabel={valueLabel}
-                loading={historyLoading}
-                onEdit={(row) => {
-                  setVersionModalTarget(record);
-                  setEditingHistoryRow(row);
-                }}
-                onDelete={(row) => onDeleteVersion(record._id, row)}
-              />
-            </div>
+              </Col>
+              <Col xs={24} md={12}>
+                <PriceHistoryTable
+                  history={history[record._id] || []}
+                  valueField={versionValueField}
+                  valueLabel={valueLabel}
+                  loading={historyLoading}
+                  onEdit={(row) => {
+                    setVersionModalTarget(record);
+                    setEditingHistoryRow(row);
+                  }}
+                  onDelete={(row) => onDeleteVersion(record._id, row)}
+                />
+              </Col>
+            </Row>
           ),
         }}
         columns={[
-          { title: nameLabel, dataIndex: nameField, key: nameField },
+          { title: nameLabel, dataIndex: nameField, key: nameField, mobilePrimary: true },
           {
             title: valueLabel,
             dataIndex: valueField,
@@ -240,7 +247,7 @@ export default function RateListPanel({
             title: '操作',
             key: 'action',
             render: (_: unknown, record: RateItem) => (
-              <Space size={4}>
+              <Space size={4} wrap>
                 <Button
                   size="small"
                   onClick={() => {

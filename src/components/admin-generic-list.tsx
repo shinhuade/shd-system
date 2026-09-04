@@ -243,7 +243,7 @@ export default function AdminGenericList({ config }: AdminGenericListProps) {
 
   return (
     <Wrapper>
-      <Title level={3} style={{ marginBottom: 24 }}>
+      <Title level={3} className="list-title">
         {name}列表
       </Title>
       <Filter>
@@ -302,6 +302,20 @@ const Wrapper = styled.section`
   border-radius: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
 
+  .list-title {
+    margin-bottom: 24px;
+  }
+
+  /* 手機版縮小外框留白，把寬度留給資料本身 */
+  @media (max-width: 768px) {
+    padding: 16px 12px;
+
+    .list-title {
+      font-size: 20px;
+      margin-bottom: 12px;
+    }
+  }
+
   .mobile-item {
     display: grid;
     gap: 10px;
@@ -338,6 +352,11 @@ const Wrapper = styled.section`
     justify-content: center;
     align-items: center;
     gap: 8px;
+
+    .ant-btn {
+      flex: 1;
+      height: 40px;
+    }
   }
 `;
 
@@ -348,4 +367,23 @@ const Filter = styled.div`
   gap: 16px;
   margin-bottom: 24px;
   justify-content: end;
+
+  /* 手機版搜尋列改為整行，排序與新增各占一半 */
+  @media (max-width: 768px) {
+    gap: 8px;
+    margin-bottom: 16px;
+
+    .ant-input-search {
+      width: 100%;
+      max-width: none !important;
+    }
+
+    .ant-select {
+      flex: 1;
+    }
+
+    .ant-btn-primary {
+      flex: 1;
+    }
+  }
 `;

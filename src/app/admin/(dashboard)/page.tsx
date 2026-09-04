@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useState } from 'react';
 import { Row, Col, App } from 'antd';
+import PageHeader from '@/components/page-header';
 import SummaryCards, { DashboardSummary } from '@/components/dashboard/summary-cards';
 import AlertBanner, { AlertItem } from '@/components/dashboard/alert-banner';
 import CostBreakdownChart from '@/components/dashboard/cost-breakdown-chart';
@@ -102,10 +103,7 @@ export default function Dashboard() {
 
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>Dashboard</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>掌握本月營收、成本與毛利，隨時知道該不該重新報價</p>
-      </div>
+      <PageHeader title="Dashboard" description="掌握本月營收、成本與毛利，隨時知道該不該重新報價" />
 
       <SummaryCards summary={summary} loading={summaryLoading} />
 

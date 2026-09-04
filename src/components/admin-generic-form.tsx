@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminConfig } from '@/types/admin-config';
 import styled from 'styled-components';
-import { Typography, Space, Button, App } from 'antd';
+import { Typography, Button, App } from 'antd';
 import Form from '@rjsf/antd';
 import validator from '@rjsf/validator-ajv8';
 import { RJSFSchema, UiSchema, RJSFValidationError } from '@rjsf/utils';
@@ -292,7 +292,7 @@ export default function AdminGenericForm({ config, id }: AdminGenericFormProps) 
         onChange={onChange}
         onSubmit={onSubmit}
       >
-        <Space style={{ marginTop: 20, width: '100%', justifyContent: 'flex-end' }}>
+        <FormActions>
           <Button
             onClick={() => {
               router.back();
@@ -303,11 +303,27 @@ export default function AdminGenericForm({ config, id }: AdminGenericFormProps) 
           <Button type="primary" htmlType="submit">
             {submitting ? '儲存中...' : '儲存'}
           </Button>
-        </Space>
+        </FormActions>
       </Form>
     </Wrapper>
   );
 }
+
+const FormActions = styled.div`
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+  margin-top: 20px;
+  width: 100%;
+
+  /* 手機版兩顆按鈕平分整行，加大點按面積 */
+  @media (max-width: 768px) {
+    .ant-btn {
+      flex: 1;
+      height: 44px;
+    }
+  }
+`;
 
 const Wrapper = styled.section`
   padding: 32px;
@@ -315,6 +331,10 @@ const Wrapper = styled.section`
   min-height: 100%;
   border-radius: 1rem;
   box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+
+  @media (max-width: 768px) {
+    padding: 16px 12px;
+  }
 
   & .ant-upload-wrapper.ant-upload-picture-card-wrapper,
   & .img-container {

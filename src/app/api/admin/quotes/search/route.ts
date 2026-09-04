@@ -65,6 +65,7 @@ export async function GET(req: NextRequest) {
             quotationNo: 1,
             quotationDate: 1,
             status: 1,
+            quoteMode: 1,
             chosenPrice: 1,
             marginRatePercent: 1,
             'customer._id': 1,

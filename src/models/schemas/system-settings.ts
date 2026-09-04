@@ -11,6 +11,12 @@ export const SystemSettingsSchema = z
     transferEfficiencyPercent: z.number({ message: '噴塗轉移率必填' }).min(0).max(100),
     standardMonthlyOperatingHours: z.number({ message: '每月標準工時必填' }).min(0),
     standardCycleHoursPerBatch: z.number({ message: '每批次標準加工工時必填' }).min(0),
+    /**
+     * 尺才換算：1 尺 = 幾才。系統原本沒有定義「尺」與「才」的換算方式，
+     * 這裡刻意不給預設值也不做任何猜測——未填寫時快速報價的「一尺單價」不會計算，
+     * 由工廠填入自己的換算基準後才啟用。
+     */
+    caiPerFoot: z.number().min(0).nullable().optional(),
     effectiveDate: z.coerce.date({ message: '生效日期必填' }),
     note: z.string().optional(),
     createdBy: z.string().optional(),

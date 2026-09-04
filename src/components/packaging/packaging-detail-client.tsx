@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, Form, Input, Modal, Row, Select, Space, Statistic, Switch, Tag } from 'antd';
+import { App, Button, Card, Col, Form, Input, Modal, Row, Select, Statistic, Switch, Tag } from 'antd';
 import { Plus, ArrowLeft, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
+import PageHeader from '@/components/page-header';
 import { PACKAGING_TYPES, PACKAGING_TYPE_LABELS } from '@/models/schemas/packaging';
 
 interface PackagingItem {
@@ -131,34 +132,32 @@ export default function PackagingDetailClient({ id }: { id: string }) {
   return (
     <section>
       <Button type="text" icon={<ArrowLeft size={14} />} onClick={() => router.push('/admin/packaging')} style={{ marginBottom: 12, paddingLeft: 0 }}>
-        返回包材管理
+        返回包材藥水成本
       </Button>
 
       {packaging && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <h1 style={{ fontSize: 24, marginBottom: 4 }}>
-                {packaging.name}（{packaging.packagingCode}）
-              </h1>
-              <Tag>{PACKAGING_TYPE_LABELS[packaging.type as keyof typeof PACKAGING_TYPE_LABELS] || packaging.type}</Tag>
-            </div>
-            <Space.Compact>
-              <Button icon={<Pen size={14} />} onClick={openEditInfo}>
-                編輯基本資料
-              </Button>
-              <Button
-                type="primary"
-                icon={<Plus size={14} />}
-                onClick={() => {
-                  setEditingHistory(null);
-                  setVersionModalOpen(true);
-                }}
-              >
-                新增價格版本
-              </Button>
-            </Space.Compact>
-          </div>
+          <PageHeader
+            title={`${packaging.name}（${packaging.packagingCode}）`}
+            description={<Tag>{PACKAGING_TYPE_LABELS[packaging.type as keyof typeof PACKAGING_TYPE_LABELS] || packaging.type}</Tag>}
+            extra={
+              <>
+                <Button icon={<Pen size={14} />} onClick={openEditInfo}>
+                  編輯基本資料
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<Plus size={14} />}
+                  onClick={() => {
+                    setEditingHistory(null);
+                    setVersionModalOpen(true);
+                  }}
+                >
+                  新增價格版本
+                </Button>
+              </>
+            }
+          />
 
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={8}>
@@ -172,7 +171,7 @@ export default function PackagingDetailClient({ id }: { id: string }) {
                 )}
               </Card>
             </Col>
-            <Col xs={24} sm={8}>
+            <Col xs={12} sm={8}>
               <Card variant="borderless">
                 <Statistic title="狀態" value={packaging.isActive ? '啟用中' : '停用'} />
               </Card>

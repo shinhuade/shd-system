@@ -68,6 +68,8 @@ export interface PricingConfigSnapshot {
 export interface CostBreakdown {
   materialCost: number;
   laborCost: number;
+  /** 精算報價的能源成本（電費＋瓦斯＋水費合併）；報價精靈的成本拆解不使用此欄位 */
+  energyCost?: number;
   gasCost: number;
   electricityCost: number;
   waterCost: number;
