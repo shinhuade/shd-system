@@ -12,6 +12,8 @@ export interface FormulaTemplate {
   lhFaces: number;
   whFaces: number;
   isActive: boolean;
+  /** 內建的基本型態（長條型／箱體型／平板型），尚未存成正式範本 */
+  isBuiltIn?: boolean;
 }
 
 export interface DimensionState {
@@ -118,11 +120,9 @@ export default function DimensionFaceFields({
           </button>
         </FormulaGrid>
 
-        {templates.length === 0 && (
-          <p style={{ color: 'rgba(0,0,0,0.45)', fontSize: 13, marginTop: 8 }}>
-            尚未建立面數公式範本，可先用「自訂」手動輸入面數，或到「成本管理 → 才數公式範本」新增常用公式。
-          </p>
-        )}
+        <p style={{ color: 'rgba(0,0,0,0.45)', fontSize: 13, marginTop: 8 }}>
+          選擇後會自動帶入三個方向的面數，仍可直接修改。要新增或調整常用公式請到「成本管理 → 才數公式範本」。
+        </p>
 
         <Row gutter={12} style={{ marginTop: 12 }}>
           {FACE_FIELDS.map((field) => (

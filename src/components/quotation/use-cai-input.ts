@@ -1,8 +1,26 @@
 'use client';
 
 import { useCallback, useEffect, useState } from 'react';
-import { FaceCounts } from '@/lib/pricing/area-formula';
+import { FaceCounts, buildFormulaCode } from '@/lib/pricing/area-formula';
+import { DEFAULT_FORMULA_TEMPLATES } from '@/models/schemas/workpiece-formula-template';
 import { CUSTOM_TEMPLATE_VALUE, DimensionState, FormulaTemplate } from './dimension-face-fields';
+
+/** 內建的基本型態（長條型／箱體型／平板型），資料庫已有同代碼的範本時以資料庫為準 */
+const BUILT_IN_TEMPLATES: FormulaTemplate[] = DEFAULT_FORMULA_TEMPLATES.map((template) => ({
+  _id: `builtin:${buildFormulaCode(template)}`,
+  name: template.name,
+  code: buildFormulaCode(template),
+  lwFaces: template.lwFaces,
+  lhFaces: template.lhFaces,
+  whFaces: template.whFaces,
+  isActive: true,
+  isBuiltIn: true,
+}));
+
+function mergeWithBuiltIns(saved: FormulaTemplate[]): FormulaTemplate[] {
+  const savedCodes = new Set(saved.map((template) => template.code));
+  return [...saved, ...BUILT_IN_TEMPLATES.filter((template) => !savedCodes.has(template.code))];
+}
 
 /**
  * 快速報價與精算報價共用的輸入狀態：工件尺寸、面數公式範本、三個方向的面數。
@@ -23,9 +41,11 @@ export function useCaiInput() {
         const res = await fetch('/api/admin/workpiece-formula-templates');
         const result = await res.json();
         if (!mounted) return;
-        setTemplates((result?.data || []).filter((t: FormulaTemplate) => t.isActive));
+        setTemplates(mergeWithBuiltIns((result?.data || []).filter((t: FormulaTemplate) => t.isActive)));
       } catch (err) {
         console.error(err);
+        // 讀不到資料庫範本時，至少保留內建的基本型態，報價流程不會卡住
+        if (mounted) setTemplates(mergeWithBuiltIns([]));
       } finally {
         if (mounted) setTemplatesLoading(false);
       }
@@ -87,6 +107,10 @@ export function useCaiInput() {
     hasDimensions,
     /** 送給 API 用的面數欄位 */
     facePayload: { lwFaces: faces.lwFaces, lhFaces: faces.lhFaces, whFaces: faces.whFaces },
-    formulaTemplateId: selectedTemplateId === CUSTOM_TEMPLATE_VALUE ? undefined : selectedTemplateId,
+    // 內建型態沒有資料庫 id，不送給後端（面數本來就會整組快照進報價紀錄）
+    formulaTemplateId:
+      !selectedTemplateId || selectedTemplateId === CUSTOM_TEMPLATE_VALUE || selectedTemplateId.startsWith('builtin:')
+        ? undefined
+        : selectedTemplateId,
   };
 }
