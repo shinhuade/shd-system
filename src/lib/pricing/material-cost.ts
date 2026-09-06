@@ -48,7 +48,7 @@ export function estimateMaterialUsage(
       longestEdgeCm,
       totalAreaCm2: 0,
       caiCount: 0,
-      chiCount: computeChiCount(longestEdgeCm, workpiece.quantity),
+      chiCount: computeChiCount(longestEdgeCm),
       formulaCode: '',
     };
   }

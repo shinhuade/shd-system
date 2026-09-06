@@ -12,7 +12,10 @@ import { Dimensions, BillingUnit } from './types';
  *
  * 走「才」時：三個方向 L×W（前後）、L×H（左右）、W×H（上下）各自需要指定「面數」(0~2)，
  * 由公式範本（例如 222 完整箱體、221 無蓋箱體、112 洞洞板類）決定。
- * 走「尺」時：面數公式與面積完全不適用，尺數 = 最長邊 ÷ 30 × 數量。
+ * 走「尺」時：面數公式與面積完全不適用，尺數 = 最長邊 ÷ 30。
+ *
+ * 才數與尺數一律是「單件」數量，兩者在成本計算裡站在同一個位階，
+ * 要換算成整批時一律由呼叫端自行乘上數量，計算層不預先乘進去。
  */
 export interface FaceCounts {
   lwFaces: number;
@@ -83,9 +86,9 @@ export function computeCaiCount(totalAreaCm2: number): number {
   return totalAreaCm2 / CM2_PER_CAI;
 }
 
-/** 尺數 = 最長邊 ÷ 30 × 數量（整批總計，與單件的才數不同，UI 需標明） */
-export function computeChiCount(longestEdgeCm: number, quantity: number): number {
-  return (longestEdgeCm / CM_PER_CHI) * quantity;
+/** 尺數 = 最長邊 ÷ 30（單件，與才數同一個位階） */
+export function computeChiCount(longestEdgeCm: number): number {
+  return longestEdgeCm / CM_PER_CHI;
 }
 
 export function buildFormulaCode(faces: FaceCounts): string {

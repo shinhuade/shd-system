@@ -104,7 +104,7 @@ export interface CostBreakdown {
   totalAreaCm2: number;
   /** 才數（單件） */
   caiCount: number;
-  /** 尺數（整批總計，已乘上數量） */
+  /** 尺數（單件，與才數同一個位階） */
   chiCount: number;
   formulaCode: string;
 }

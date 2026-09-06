@@ -405,7 +405,7 @@ export default function QuotationWizard() {
   const isChiBilling = liveBilling.billingUnit === 'chi';
   const liveTotalAreaCm2 = isChiBilling ? 0 : computeTotalAreaCm2(liveDimensions, currentFaces);
   const liveCaiCount = computeCaiCount(liveTotalAreaCm2);
-  const liveChiCount = isChiBilling ? computeChiCount(liveBilling.longestEdgeCm, workpiece.quantity) : 0;
+  const liveChiCount = isChiBilling ? computeChiCount(liveBilling.longestEdgeCm) : 0;
 
   // 走尺的工件不需要選面數公式，因此不擋下一步
   const hasFormulaSelected =
@@ -534,7 +534,7 @@ export default function QuotationWizard() {
                         </span>
                       </div>
                       <div style={{ display: 'flex', justifyContent: 'space-between' }}>
-                        <span>尺數（{workpiece.quantity} 件總計）</span>
+                        <span>尺數（單件）</span>
                         <strong>{liveChiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 尺</strong>
                       </div>
                     </Card>

@@ -67,7 +67,7 @@ export const QuotationItemSchema = z
     totalAreaCm2: z.number().min(0).default(0),
     /** 才數（單件） */
     caiCount: z.number().min(0).default(0),
-    /** 尺數（整批總計，已乘上數量） */
+    /** 尺數（單件，與才數同一個位階） */
     chiCount: z.number().min(0).default(0),
 
     hangCount: z.number().min(0).default(0),
