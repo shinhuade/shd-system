@@ -13,7 +13,16 @@ export function buildCostBreakdown(
   rates: RateSnapshot,
   config: PricingConfigSnapshot,
 ): CostBreakdown {
-  const { materialUsageKg, totalAreaCm2, caiCount, formulaCode } = estimateMaterialUsage(workpiece, config);
+  const {
+    materialUsageKg,
+    billingUnit,
+    billingWidthCm,
+    longestEdgeCm,
+    totalAreaCm2,
+    caiCount,
+    chiCount,
+    formulaCode,
+  } = estimateMaterialUsage(workpiece, config);
   const materialLossRatePercent =
     rates.materialLossRatePercent ?? config.defaultMaterialLossRatePercent;
   const materialCost = computeMaterialCost(materialUsageKg, rates.materialPricePerKg, materialLossRatePercent);
@@ -58,8 +67,12 @@ export function buildCostBreakdown(
     totalCost,
     materialUsageKg,
     processingHours,
+    billingUnit,
+    billingWidthCm,
+    longestEdgeCm,
     totalAreaCm2,
     caiCount,
+    chiCount,
     formulaCode,
   };
 }

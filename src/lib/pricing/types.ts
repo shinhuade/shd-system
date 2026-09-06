@@ -1,3 +1,9 @@
+/**
+ * 計價單位：cai = 才（面積單位，1 才 = 900 cm²），chi = 尺（長度單位，1 尺 = 30 cm）。
+ * 兩者互斥，由 resolveBillingUnit() 依寬度判定，同一件工件不會同時有才數與尺數。
+ */
+export type BillingUnit = 'cai' | 'chi';
+
 export interface Dimensions {
   length?: number;
   width?: number;
@@ -18,7 +24,10 @@ export interface WorkpieceInput {
   lwFaces?: number;
   lhFaces?: number;
   whFaces?: number;
-  /** 若使用者直接輸入理論粉料用量(kg)，優先採用，不再用才數估算 */
+  /**
+   * 若使用者直接輸入理論粉料用量(kg)，優先採用，不再用才數估算。
+   * 走「尺」計價時不算面積，粉料用量只能由這裡提供，未填即為 0。
+   */
   overrideMaterialUsageKg?: number;
   hangCount: number;
   ovenCapacityPerBatch: number;
@@ -82,9 +91,21 @@ export interface CostBreakdown {
   /** 中繼數值，供 UI 顯示、以及寫入 QuotationItem 的歷史快照用 */
   materialUsageKg: number;
   processingHours: number;
-  /** 才數計算（Layer 1）結果快照：總面積(cm²)、才數、面數公式 */
+  /**
+   * 計價單位判定與 Layer 1 結果快照。才與尺互斥：
+   * - billingUnit = 'cai'：totalAreaCm2 / caiCount / formulaCode 有值，chiCount 為 0。
+   * - billingUnit = 'chi'：chiCount 有值，totalAreaCm2 / caiCount 為 0、formulaCode 為空字串。
+   */
+  billingUnit: BillingUnit;
+  /** 判定計價單位所用的寬度 (cm)，供 UI 說明「為什麼這件走尺」 */
+  billingWidthCm: number;
+  /** 最長邊 (cm)，走尺計價時的長度來源 */
+  longestEdgeCm: number;
   totalAreaCm2: number;
+  /** 才數（單件） */
   caiCount: number;
+  /** 尺數（整批總計，已乘上數量） */
+  chiCount: number;
   formulaCode: string;
 }
 

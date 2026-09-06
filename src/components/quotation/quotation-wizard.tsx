@@ -22,7 +22,15 @@ import {
   Steps,
   Tag,
 } from 'antd';
-import { computeTotalAreaCm2, computeCaiCount, buildFormulaCode } from '@/lib/pricing/area-formula';
+import {
+  computeTotalAreaCm2,
+  computeCaiCount,
+  computeChiCount,
+  buildFormulaCode,
+  resolveBillingUnit,
+  CHI_WIDTH_THRESHOLD_CM,
+  CM_PER_CHI,
+} from '@/lib/pricing/area-formula';
 import { suggestBatchCount } from '@/lib/pricing/processing-cost';
 
 interface FormulaTemplate {
@@ -77,6 +85,7 @@ interface WorkpieceForm {
   paintColor?: string;
   materialId?: string;
   estimatedFilmThicknessUm?: number;
+  overrideMaterialUsageKg?: number;
   packagingId?: string;
   hangCount: number;
   ovenCapacityPerBatch: number;
@@ -100,8 +109,12 @@ interface CalcResult {
     wastageCost: number;
     indirectCostTotal: number;
     totalCost: number;
+    billingUnit: 'cai' | 'chi';
+    billingWidthCm: number;
+    longestEdgeCm: number;
     totalAreaCm2: number;
     caiCount: number;
+    chiCount: number;
     formulaCode: string;
   };
   suggestion: {
@@ -214,6 +227,7 @@ export default function QuotationWizard() {
               quantity: workpiece.quantity,
               unitWeightKg: workpiece.unitWeightKg,
               estimatedFilmThicknessUm: workpiece.estimatedFilmThicknessUm,
+              overrideMaterialUsageKg: workpiece.overrideMaterialUsageKg,
               hangCount: workpiece.hangCount,
               ovenCapacityPerBatch: workpiece.ovenCapacityPerBatch,
               batchCount: workpiece.batchCount,
@@ -263,6 +277,7 @@ export default function QuotationWizard() {
     workpiece.quantity,
     workpiece.unitWeightKg,
     workpiece.estimatedFilmThicknessUm,
+    workpiece.overrideMaterialUsageKg,
     workpiece.hangCount,
     workpiece.ovenCapacityPerBatch,
     workpiece.batchCount,
@@ -311,6 +326,7 @@ export default function QuotationWizard() {
               paintColor: workpiece.paintColor,
               materialId: workpiece.materialId,
               estimatedFilmThicknessUm: workpiece.estimatedFilmThicknessUm,
+              overrideMaterialUsageKg: workpiece.overrideMaterialUsageKg,
               packagingId: workpiece.packagingId,
               hangCount: workpiece.hangCount,
               ovenCapacityPerBatch: workpiece.ovenCapacityPerBatch,
@@ -382,14 +398,21 @@ export default function QuotationWizard() {
   const isCustomFormula = workpiece.workpieceFormulaTemplateId === CUSTOM_TEMPLATE_VALUE;
   const currentFaces = { lwFaces: workpiece.lwFaces, lhFaces: workpiece.lhFaces, whFaces: workpiece.whFaces };
   const liveFormulaCode = buildFormulaCode(currentFaces);
-  const liveTotalAreaCm2 = computeTotalAreaCm2(
-    { length: workpiece.length, width: workpiece.width, height: workpiece.height },
-    currentFaces,
-  );
+  const liveDimensions = { length: workpiece.length, width: workpiece.width, height: workpiece.height };
+
+  // 才（面積）與尺（長度）互斥：寬度 < 5 cm 走尺，此時面積/才數/面數公式完全不適用。
+  const liveBilling = resolveBillingUnit(liveDimensions);
+  const isChiBilling = liveBilling.billingUnit === 'chi';
+  const liveTotalAreaCm2 = isChiBilling ? 0 : computeTotalAreaCm2(liveDimensions, currentFaces);
   const liveCaiCount = computeCaiCount(liveTotalAreaCm2);
-  const hasFormulaSelected = isCustomFormula
-    ? currentFaces.lwFaces + currentFaces.lhFaces + currentFaces.whFaces > 0
-    : Boolean(workpiece.workpieceFormulaTemplateId);
+  const liveChiCount = isChiBilling ? computeChiCount(liveBilling.longestEdgeCm, workpiece.quantity) : 0;
+
+  // 走尺的工件不需要選面數公式，因此不擋下一步
+  const hasFormulaSelected =
+    isChiBilling ||
+    (isCustomFormula
+      ? currentFaces.lwFaces + currentFaces.lhFaces + currentFaces.whFaces > 0
+      : Boolean(workpiece.workpieceFormulaTemplateId));
 
   const onSelectTemplate = (templateId: string) => {
     if (templateId === CUSTOM_TEMPLATE_VALUE) {
@@ -459,6 +482,7 @@ export default function QuotationWizard() {
                     </Col>
                   </Row>
 
+                  {!isChiBilling && (
                   <Form.Item label="工件類型（才數公式）" required>
                     <Select
                       placeholder="選擇工件類型"
@@ -470,8 +494,9 @@ export default function QuotationWizard() {
                       ]}
                     />
                   </Form.Item>
+                  )}
 
-                  {isCustomFormula && (
+                  {!isChiBilling && isCustomFormula && (
                     <Row gutter={12}>
                       <Col span={8}>
                         <Form.Item label="長×寬（前後）面數">
@@ -491,7 +516,31 @@ export default function QuotationWizard() {
                     </Row>
                   )}
 
-                  {hasFormulaSelected && (
+                  {isChiBilling && (
+                    <Card size="small" variant="borderless" style={{ background: '#fff7e6', marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span>計價單位</span>
+                        <Tag color="orange">尺（長度）</Tag>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                        寬度 {liveBilling.billingWidthCm} cm 小於 {CHI_WIDTH_THRESHOLD_CM} cm，依本廠規則改以「尺」計價。
+                        尺是長度單位、才是面積單位，兩者不共用，因此這件不計面積也不需要面數公式。
+                      </div>
+                      <Divider style={{ margin: '8px 0' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>最長邊</span>
+                        <span>
+                          {liveBilling.longestEdgeCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm ÷ {CM_PER_CHI} cm
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>尺數（{workpiece.quantity} 件總計）</span>
+                        <strong>{liveChiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 尺</strong>
+                      </div>
+                    </Card>
+                  )}
+
+                  {!isChiBilling && hasFormulaSelected && (
                     <Card size="small" variant="borderless" style={{ background: '#fafafa', marginBottom: 16 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span>公式</span>
@@ -582,9 +631,23 @@ export default function QuotationWizard() {
                             )}
                             <Row gutter={12} style={{ marginTop: 12 }}>
                               <Col span={12}>
-                                <Form.Item label="預估膜厚 (μm)">
-                                  <InputNumber style={{ width: '100%' }} min={0} value={workpiece.estimatedFilmThicknessUm} onChange={(v) => update({ estimatedFilmThicknessUm: v ?? undefined })} />
-                                </Form.Item>
+                                {isChiBilling ? (
+                                  <Form.Item
+                                    label="理論粉料用量 (kg／整批)"
+                                    extra="走尺計價不計面積，無法由膜厚推估粉料，需直接輸入整批用量；未填則粉料成本為 0。"
+                                  >
+                                    <InputNumber
+                                      style={{ width: '100%' }}
+                                      min={0}
+                                      value={workpiece.overrideMaterialUsageKg}
+                                      onChange={(v) => update({ overrideMaterialUsageKg: v ?? undefined })}
+                                    />
+                                  </Form.Item>
+                                ) : (
+                                  <Form.Item label="預估膜厚 (μm)">
+                                    <InputNumber style={{ width: '100%' }} min={0} value={workpiece.estimatedFilmThicknessUm} onChange={(v) => update({ estimatedFilmThicknessUm: v ?? undefined })} />
+                                  </Form.Item>
+                                )}
                               </Col>
                               <Col span={12}>
                                 <Form.Item label="包裝方式">
@@ -733,15 +796,32 @@ export default function QuotationWizard() {
               {result && (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Space>
-                      <Tag color="blue">公式 {result.breakdown.formulaCode}</Tag>
-                      <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
-                        {result.breakdown.totalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²
-                      </span>
-                    </Space>
-                    <span>
-                      <strong>{result.breakdown.caiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> 才
-                    </span>
+                    {result.breakdown.billingUnit === 'chi' ? (
+                      <>
+                        <Space>
+                          <Tag color="orange">尺（長度）</Tag>
+                          <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                            寬 {result.breakdown.billingWidthCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm
+                            ／最長邊 {result.breakdown.longestEdgeCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm
+                          </span>
+                        </Space>
+                        <span>
+                          <strong>{result.breakdown.chiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> 尺
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Space>
+                          <Tag color="blue">公式 {result.breakdown.formulaCode}</Tag>
+                          <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                            {result.breakdown.totalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²
+                          </span>
+                        </Space>
+                        <span>
+                          <strong>{result.breakdown.caiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> 才
+                        </span>
+                      </>
+                    )}
                   </div>
                   <Space orientation="vertical" style={{ width: '100%' }} size={4}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
