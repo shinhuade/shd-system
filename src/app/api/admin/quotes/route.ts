@@ -126,6 +126,7 @@ export async function POST(req: NextRequest) {
         totalAreaCm2: breakdown.totalAreaCm2,
         caiCount: breakdown.caiCount,
         chiCount: breakdown.chiCount,
+        billingUnitPrice: item.billingUnitPrice,
         hangCount: item.hangCount,
         ovenCapacityPerBatch: item.ovenCapacityPerBatch,
         batchCount: item.batchCount,

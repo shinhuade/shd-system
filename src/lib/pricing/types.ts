@@ -45,6 +45,11 @@ export interface WorkpieceInput {
   wastageCost?: number;
   /** 包材使用數量，預設等於 quantity */
   packagingQuantity?: number;
+  /**
+   * 單價法報價用的「每才／每尺單價」($)。有填才會產生 unit_price 這一檔報價：
+   * 報價 = 單件才數或尺數 × 單價 × 數量。成本仍照常計算，用來檢核毛利。
+   */
+  billingUnitPrice?: number;
 }
 
 /** 報價當下用於計算的所有牌價快照，一律來自版本化的 Model，不可寫死 */
@@ -72,6 +77,13 @@ export interface PricingConfigSnapshot {
   transferEfficiencyPercent: number;
   standardMonthlyOperatingHours: number;
   standardCycleHoursPerBatch: number;
+  /**
+   * 產線吊掛參數（選填）。長件必須橫掛，會依長度佔掉多個掛勾位，
+   * 使每盤掛得下的件數變少、批次數變多、分攤到的產線成本上升。
+   * 未設定時不做自動建議（不臆測數字），掛件數改由使用者自行填寫。
+   */
+  hookSlotLengthCm?: number;
+  hooksPerRack?: number;
 }
 
 export interface CostBreakdown {
@@ -120,10 +132,15 @@ export interface QuoteSuggestion {
   costPrice: number;
   standardPrice: number;
   highMarginPrice: number;
+  /** 單價法報價（單件才數／尺數 × 單價 × 數量）。未提供單價時為 undefined。 */
+  unitBasedPrice?: number;
+  /** 單價法所採用的計價數量（單件才數或尺數），供 UI 顯示算式 */
+  billingQuantityPerUnit: number;
   tiers: {
     cost: QuoteTierResult;
     standard: QuoteTierResult;
     high_margin: QuoteTierResult;
+    unit_price?: QuoteTierResult;
   };
 }
 

@@ -69,6 +69,8 @@ export const QuotationItemSchema = z
     caiCount: z.number().min(0).default(0),
     /** 尺數（單件，與才數同一個位階） */
     chiCount: z.number().min(0).default(0),
+    /** 單價法報價時採用的每才／每尺單價 ($)，凍結在報價當下 */
+    billingUnitPrice: z.number().min(0).optional(),
 
     hangCount: z.number().min(0).default(0),
     ovenCapacityPerBatch: z.number().min(0).default(0),

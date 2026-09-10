@@ -78,6 +78,7 @@ const QuotationItemSchema: Schema = new Schema(
     totalAreaCm2: { type: Number, default: 0 },
     caiCount: { type: Number, default: 0 },
     chiCount: { type: Number, default: 0 },
+    billingUnitPrice: { type: Number },
 
     hangCount: { type: Number, default: 0 },
     ovenCapacityPerBatch: { type: Number, default: 0 },

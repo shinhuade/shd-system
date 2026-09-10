@@ -17,6 +17,8 @@ const SystemSettingsSchema: Schema = new Schema(
     transferEfficiencyPercent: { type: Number, required: true },
     standardMonthlyOperatingHours: { type: Number, required: true },
     standardCycleHoursPerBatch: { type: Number, required: true },
+    hookSlotLengthCm: { type: Number },
+    hooksPerRack: { type: Number },
     effectiveDate: { type: Date, required: true, index: true },
     note: { type: String },
     createdBy: { type: Schema.Types.ObjectId, ref: 'Admin' },

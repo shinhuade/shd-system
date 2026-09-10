@@ -84,23 +84,45 @@ function buildTierResult(price: number, costPrice: number): QuoteTierResult {
   return { price, marginAmount, marginRatePercent, markupRatePercent };
 }
 
+/** 單價法要乘的計價數量：走才用單件才數，走尺用單件尺數（兩者互斥） */
+export function resolveBillingQuantityPerUnit(breakdown: Pick<CostBreakdown, 'billingUnit' | 'caiCount' | 'chiCount'>): number {
+  return breakdown.billingUnit === 'chi' ? breakdown.chiCount : breakdown.caiCount;
+}
+
 /**
- * 七、報價建議：提供成本價 / 標準報價 / 高毛利報價三種，加成率一律來自 SystemSettings。
- * 標準報價 = 成本價 × (1 + 標準加成率%)；高毛利報價 = 成本價 × (1 + 高毛利加成率%)
+ * 七、報價建議：
+ * - 成本加成法（成本價 / 標準報價 / 高毛利報價），加成率一律來自 SystemSettings。
+ *   標準報價 = 成本價 × (1 + 標準加成率%)；高毛利報價 = 成本價 × (1 + 高毛利加成率%)
+ * - 單價法（unit_price）：報價 = 單件才數或尺數 × 每才／每尺單價 × 數量。
+ *   這是實務上對客戶開價的方式；成本仍照常算，用來檢核這個開價的毛利夠不夠。
+ *   未提供 billingUnitPrice 時不產生這一檔。
  */
-export function buildQuoteSuggestion(breakdown: CostBreakdown, config: PricingConfigSnapshot): QuoteSuggestion {
+export function buildQuoteSuggestion(
+  breakdown: CostBreakdown,
+  config: PricingConfigSnapshot,
+  workpiece: Pick<WorkpieceInput, 'quantity' | 'billingUnitPrice'>,
+): QuoteSuggestion {
   const costPrice = breakdown.totalCost;
   const standardPrice = costPrice * (1 + config.standardMarkupPercent / 100);
   const highMarginPrice = costPrice * (1 + config.highMarginMarkupPercent / 100);
+
+  const billingQuantityPerUnit = resolveBillingQuantityPerUnit(breakdown);
+  const unitBasedPrice =
+    typeof workpiece.billingUnitPrice === 'number' && workpiece.billingUnitPrice >= 0
+      ? billingQuantityPerUnit * workpiece.billingUnitPrice * workpiece.quantity
+      : undefined;
 
   return {
     costPrice,
     standardPrice,
     highMarginPrice,
+    unitBasedPrice,
+    billingQuantityPerUnit,
     tiers: {
       cost: buildTierResult(costPrice, costPrice),
       standard: buildTierResult(standardPrice, costPrice),
       high_margin: buildTierResult(highMarginPrice, costPrice),
+      unit_price: unitBasedPrice !== undefined ? buildTierResult(unitBasedPrice, costPrice) : undefined,
     },
   };
 }
