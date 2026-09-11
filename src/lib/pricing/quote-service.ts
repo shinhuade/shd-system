@@ -1,6 +1,7 @@
 import { loadRateContext } from './rates-loader';
 import { buildCostBreakdown, buildQuoteSuggestion } from './quote-engine';
 import { WorkpieceInput, CostBreakdown, QuoteSuggestion, RateSnapshot, PricingConfigSnapshot } from './types';
+import { QuotationTier } from '@/models/schemas/quotation';
 
 export interface CalculateQuoteItemResult {
   breakdown: CostBreakdown;
@@ -19,22 +20,29 @@ export async function calculateQuoteItem(
 ): Promise<CalculateQuoteItemResult> {
   const { rates, config, processingParamsId, pricingConfigId } = await loadRateContext(materialId, packagingId);
   const breakdown = buildCostBreakdown(workpiece, rates, config);
-  const suggestion = buildQuoteSuggestion(breakdown, config);
+  const suggestion = buildQuoteSuggestion(breakdown, config, workpiece);
 
   return { breakdown, suggestion, processingParamsId, pricingConfigId, rates, config };
 }
 
 export function resolveChosenPrice(
   suggestion: QuoteSuggestion,
-  chosenTier: 'cost' | 'standard' | 'high_margin' | 'custom',
+  chosenTier: QuotationTier,
   customPrice?: number,
 ) {
   if (chosenTier === 'custom') {
-    const price = customPrice ?? suggestion.standardPrice;
-    const marginAmount = price - suggestion.costPrice;
-    const marginRatePercent = price > 0 ? (marginAmount / price) * 100 : 0;
-    const markupRatePercent = suggestion.costPrice > 0 ? (marginAmount / suggestion.costPrice) * 100 : 0;
-    return { price, marginAmount, marginRatePercent, markupRatePercent };
+    return buildArbitraryTier(customPrice ?? suggestion.standardPrice, suggestion.costPrice);
+  }
+  if (chosenTier === 'unit_price') {
+    // 沒填每才／每尺單價就沒有這一檔，退回標準報價而不是讓報價變成 0
+    return suggestion.tiers.unit_price ?? buildArbitraryTier(suggestion.standardPrice, suggestion.costPrice);
   }
   return suggestion.tiers[chosenTier];
+}
+
+function buildArbitraryTier(price: number, costPrice: number) {
+  const marginAmount = price - costPrice;
+  const marginRatePercent = price > 0 ? (marginAmount / price) * 100 : 0;
+  const markupRatePercent = costPrice > 0 ? (marginAmount / costPrice) * 100 : 0;
+  return { price, marginAmount, marginRatePercent, markupRatePercent };
 }

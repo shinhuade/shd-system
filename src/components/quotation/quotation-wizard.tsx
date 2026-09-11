@@ -22,8 +22,16 @@ import {
   Steps,
   Tag,
 } from 'antd';
-import { computeTotalAreaCm2, computeCaiCount, buildFormulaCode } from '@/lib/pricing/area-formula';
-import { suggestBatchCount } from '@/lib/pricing/processing-cost';
+import {
+  computeTotalAreaCm2,
+  computeCaiCount,
+  computeChiCount,
+  buildFormulaCode,
+  resolveBillingUnit,
+  CHI_WIDTH_THRESHOLD_CM,
+  CM_PER_CHI,
+} from '@/lib/pricing/area-formula';
+import { suggestBatchCount, suggestHangOccupancy } from '@/lib/pricing/processing-cost';
 
 interface FormulaTemplate {
   _id: string;
@@ -77,6 +85,8 @@ interface WorkpieceForm {
   paintColor?: string;
   materialId?: string;
   estimatedFilmThicknessUm?: number;
+  overrideMaterialUsageKg?: number;
+  billingUnitPrice?: number;
   packagingId?: string;
   hangCount: number;
   ovenCapacityPerBatch: number;
@@ -85,6 +95,13 @@ interface WorkpieceForm {
   pretreatmentCost?: number;
   outsourcingCost?: number;
   wastageCost?: number;
+}
+
+interface QuoteTier {
+  price: number;
+  marginAmount: number;
+  marginRatePercent: number;
+  markupRatePercent: number;
 }
 
 interface CalcResult {
@@ -100,15 +117,21 @@ interface CalcResult {
     wastageCost: number;
     indirectCostTotal: number;
     totalCost: number;
+    billingUnit: 'cai' | 'chi';
+    billingWidthCm: number;
+    longestEdgeCm: number;
     totalAreaCm2: number;
     caiCount: number;
+    chiCount: number;
     formulaCode: string;
   };
   suggestion: {
     costPrice: number;
     standardPrice: number;
     highMarginPrice: number;
-    tiers: Record<'cost' | 'standard' | 'high_margin', { price: number; marginAmount: number; marginRatePercent: number; markupRatePercent: number }>;
+    unitBasedPrice?: number;
+    billingQuantityPerUnit: number;
+    tiers: Record<'cost' | 'standard' | 'high_margin', QuoteTier> & { unit_price?: QuoteTier };
   };
 }
 
@@ -124,6 +147,8 @@ export default function QuotationWizard() {
   const [templates, setTemplates] = useState<FormulaTemplate[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [customerId, setCustomerId] = useState<string>();
+  // 產線吊掛設定（來自 SystemSettings，未設定則不做掛件數自動建議）
+  const [hangSettings, setHangSettings] = useState<{ hookSlotLengthCm?: number; hooksPerRack?: number }>({});
 
   const emptyWorkpiece: WorkpieceForm = {
     workpieceName: '',
@@ -139,6 +164,8 @@ export default function QuotationWizard() {
     batchCount: 1,
   };
   const [workpiece, setWorkpiece] = useState<WorkpieceForm>(emptyWorkpiece);
+  const [hangCountManuallySet, setHangCountManuallySet] = useState(false);
+  const [lastAppliedHangSuggestion, setLastAppliedHangSuggestion] = useState<number | undefined>(undefined);
   const [batchCountManuallySet, setBatchCountManuallySet] = useState(false);
   const [lastAppliedBatchSuggestion, setLastAppliedBatchSuggestion] = useState<number | undefined>(undefined);
   const update = (patch: Partial<WorkpieceForm>) => setWorkpiece((prev) => ({ ...prev, ...patch }));
@@ -146,7 +173,7 @@ export default function QuotationWizard() {
   const [result, setResult] = useState<CalcResult | null>(null);
   const [calculating, setCalculating] = useState(false);
   const [calcError, setCalcError] = useState<string | null>(null);
-  const [chosenTier, setChosenTier] = useState<'cost' | 'standard' | 'high_margin' | 'custom'>('standard');
+  const [chosenTier, setChosenTier] = useState<'cost' | 'standard' | 'high_margin' | 'unit_price' | 'custom'>('standard');
   const [customPrice, setCustomPrice] = useState<number>();
   const [submitting, setSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState<{ quotationNo: string } | null>(null);
@@ -157,17 +184,23 @@ export default function QuotationWizard() {
     const init = async () => {
       try {
         setLoadingOptions(true);
-        const [materialsRes, packagingRes, customersRes, templatesRes] = await Promise.all([
+        const [materialsRes, packagingRes, customersRes, templatesRes, settingsRes] = await Promise.all([
           fetch('/api/admin/materials'),
           fetch('/api/admin/packaging'),
           fetch('/api/generic/customer/all'),
           fetch('/api/admin/workpiece-formula-templates'),
+          fetch('/api/admin/system-settings/current'),
         ]);
         const materialsResult = await materialsRes.json();
         const packagingResult = await packagingRes.json();
         const customersResult = await customersRes.json();
         const templatesResult = await templatesRes.json();
+        const settingsResult = settingsRes.ok ? await settingsRes.json() : null;
         if (!mounted) return;
+        setHangSettings({
+          hookSlotLengthCm: settingsResult?.data?.hookSlotLengthCm,
+          hooksPerRack: settingsResult?.data?.hooksPerRack,
+        });
         setMaterials((materialsResult?.data || []).filter((m: Material) => m.isActive));
         setPackagingItems((packagingResult?.data || []).filter((p: PackagingItem) => p.isActive));
         setCustomers(customersResult?.data || []);
@@ -214,6 +247,8 @@ export default function QuotationWizard() {
               quantity: workpiece.quantity,
               unitWeightKg: workpiece.unitWeightKg,
               estimatedFilmThicknessUm: workpiece.estimatedFilmThicknessUm,
+              overrideMaterialUsageKg: workpiece.overrideMaterialUsageKg,
+              billingUnitPrice: workpiece.billingUnitPrice,
               hangCount: workpiece.hangCount,
               ovenCapacityPerBatch: workpiece.ovenCapacityPerBatch,
               batchCount: workpiece.batchCount,
@@ -263,6 +298,8 @@ export default function QuotationWizard() {
     workpiece.quantity,
     workpiece.unitWeightKg,
     workpiece.estimatedFilmThicknessUm,
+    workpiece.overrideMaterialUsageKg,
+    workpiece.billingUnitPrice,
     workpiece.hangCount,
     workpiece.ovenCapacityPerBatch,
     workpiece.batchCount,
@@ -282,6 +319,11 @@ export default function QuotationWizard() {
     }
     if (!result) {
       message.error('請先完成成本試算');
+      return;
+    }
+    // 選了單價法卻沒填單價，會讓伺服器退回標準報價，寧可先擋下來讓使用者知道
+    if (chosenTier === 'unit_price' && !result.suggestion.tiers.unit_price) {
+      message.error(`請先填寫${isChiBilling ? '每尺' : '每才'}單價，或改選其他報價方式`);
       return;
     }
     setSubmitting(true);
@@ -311,6 +353,8 @@ export default function QuotationWizard() {
               paintColor: workpiece.paintColor,
               materialId: workpiece.materialId,
               estimatedFilmThicknessUm: workpiece.estimatedFilmThicknessUm,
+              overrideMaterialUsageKg: workpiece.overrideMaterialUsageKg,
+              billingUnitPrice: workpiece.billingUnitPrice,
               packagingId: workpiece.packagingId,
               hangCount: workpiece.hangCount,
               ovenCapacityPerBatch: workpiece.ovenCapacityPerBatch,
@@ -354,6 +398,8 @@ export default function QuotationWizard() {
               setStep(0);
               setResult(null);
               setWorkpiece(emptyWorkpiece);
+              setHangCountManuallySet(false);
+              setLastAppliedHangSuggestion(undefined);
               setBatchCountManuallySet(false);
               setLastAppliedBatchSuggestion(undefined);
             }}
@@ -367,6 +413,38 @@ export default function QuotationWizard() {
 
   const selectedMaterial = materials.find((m) => m._id === workpiece.materialId);
 
+  const isCustomFormula = workpiece.workpieceFormulaTemplateId === CUSTOM_TEMPLATE_VALUE;
+  const currentFaces = { lwFaces: workpiece.lwFaces, lhFaces: workpiece.lhFaces, whFaces: workpiece.whFaces };
+  const liveFormulaCode = buildFormulaCode(currentFaces);
+  const liveDimensions = { length: workpiece.length, width: workpiece.width, height: workpiece.height };
+
+  // 才（面積）與尺（長度）互斥：寬度 < 5 cm 走尺，此時面積/才數/面數公式完全不適用。
+  const liveBilling = resolveBillingUnit(liveDimensions);
+  const isChiBilling = liveBilling.billingUnit === 'chi';
+  const liveTotalAreaCm2 = isChiBilling ? 0 : computeTotalAreaCm2(liveDimensions, currentFaces);
+  const liveCaiCount = computeCaiCount(liveTotalAreaCm2);
+  const liveChiCount = isChiBilling ? computeChiCount(liveBilling.longestEdgeCm) : 0;
+
+  // 走尺的工件不需要選面數公式，因此不擋下一步
+  const hasFormulaSelected =
+    isChiBilling ||
+    (isCustomFormula
+      ? currentFaces.lwFaces + currentFaces.lhFaces + currentFaces.whFaces > 0
+      : Boolean(workpiece.workpieceFormulaTemplateId));
+
+  // 長件不能直立吊掛、必須橫掛，長度愈長佔掉愈多掛勾位，一盤掛得下的件數就愈少。
+  // 依系統設定的「每掛勾位可容納長度」與「每支吊盤掛勾數」自動建議掛件數，
+  // 讓產線利用率下降這件事真的反映到批次數與成本上；設定未填則不建議。
+  const hangOccupancy = suggestHangOccupancy(liveBilling.longestEdgeCm, hangSettings);
+  if (
+    !hangCountManuallySet &&
+    hangOccupancy !== undefined &&
+    hangOccupancy.piecesPerRack !== lastAppliedHangSuggestion
+  ) {
+    setLastAppliedHangSuggestion(hangOccupancy.piecesPerRack);
+    setWorkpiece((prev) => ({ ...prev, hangCount: hangOccupancy.piecesPerRack }));
+  }
+
   // 依「掛件數 × 烤爐容量」推算這個數量大概需要幾個批次，避免使用者忘記調整時
   // 整批（例如 2 小時）的人工/瓦斯/電/水成本被整筆算到單一工件上。
   const suggestedBatchCount = suggestBatchCount(workpiece.quantity, workpiece.hangCount, workpiece.ovenCapacityPerBatch);
@@ -378,18 +456,6 @@ export default function QuotationWizard() {
     setLastAppliedBatchSuggestion(suggestedBatchCount);
     setWorkpiece((prev) => ({ ...prev, batchCount: suggestedBatchCount }));
   }
-
-  const isCustomFormula = workpiece.workpieceFormulaTemplateId === CUSTOM_TEMPLATE_VALUE;
-  const currentFaces = { lwFaces: workpiece.lwFaces, lhFaces: workpiece.lhFaces, whFaces: workpiece.whFaces };
-  const liveFormulaCode = buildFormulaCode(currentFaces);
-  const liveTotalAreaCm2 = computeTotalAreaCm2(
-    { length: workpiece.length, width: workpiece.width, height: workpiece.height },
-    currentFaces,
-  );
-  const liveCaiCount = computeCaiCount(liveTotalAreaCm2);
-  const hasFormulaSelected = isCustomFormula
-    ? currentFaces.lwFaces + currentFaces.lhFaces + currentFaces.whFaces > 0
-    : Boolean(workpiece.workpieceFormulaTemplateId);
 
   const onSelectTemplate = (templateId: string) => {
     if (templateId === CUSTOM_TEMPLATE_VALUE) {
@@ -459,6 +525,7 @@ export default function QuotationWizard() {
                     </Col>
                   </Row>
 
+                  {!isChiBilling && (
                   <Form.Item label="工件類型（才數公式）" required>
                     <Select
                       placeholder="選擇工件類型"
@@ -470,8 +537,9 @@ export default function QuotationWizard() {
                       ]}
                     />
                   </Form.Item>
+                  )}
 
-                  {isCustomFormula && (
+                  {!isChiBilling && isCustomFormula && (
                     <Row gutter={12}>
                       <Col span={8}>
                         <Form.Item label="長×寬（前後）面數">
@@ -491,7 +559,31 @@ export default function QuotationWizard() {
                     </Row>
                   )}
 
-                  {hasFormulaSelected && (
+                  {isChiBilling && (
+                    <Card size="small" variant="borderless" style={{ background: '#fff7e6', marginBottom: 16 }}>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
+                        <span>計價單位</span>
+                        <Tag color="orange">尺（長度）</Tag>
+                      </div>
+                      <div style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                        寬度 {liveBilling.billingWidthCm} cm 小於 {CHI_WIDTH_THRESHOLD_CM} cm，依本廠規則改以「尺」計價。
+                        尺是長度單位、才是面積單位，兩者不共用，因此這件不計面積也不需要面數公式。
+                      </div>
+                      <Divider style={{ margin: '8px 0' }} />
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>最長邊</span>
+                        <span>
+                          {liveBilling.longestEdgeCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm ÷ {CM_PER_CHI} cm
+                        </span>
+                      </div>
+                      <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                        <span>尺數（單件）</span>
+                        <strong>{liveChiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 尺</strong>
+                      </div>
+                    </Card>
+                  )}
+
+                  {!isChiBilling && hasFormulaSelected && (
                     <Card size="small" variant="borderless" style={{ background: '#fafafa', marginBottom: 16 }}>
                       <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: 4 }}>
                         <span>公式</span>
@@ -582,9 +674,23 @@ export default function QuotationWizard() {
                             )}
                             <Row gutter={12} style={{ marginTop: 12 }}>
                               <Col span={12}>
-                                <Form.Item label="預估膜厚 (μm)">
-                                  <InputNumber style={{ width: '100%' }} min={0} value={workpiece.estimatedFilmThicknessUm} onChange={(v) => update({ estimatedFilmThicknessUm: v ?? undefined })} />
-                                </Form.Item>
+                                {isChiBilling ? (
+                                  <Form.Item
+                                    label="理論粉料用量 (kg／整批)"
+                                    extra="走尺計價不計面積，無法由膜厚推估粉料，需直接輸入整批用量；未填則粉料成本為 0。"
+                                  >
+                                    <InputNumber
+                                      style={{ width: '100%' }}
+                                      min={0}
+                                      value={workpiece.overrideMaterialUsageKg}
+                                      onChange={(v) => update({ overrideMaterialUsageKg: v ?? undefined })}
+                                    />
+                                  </Form.Item>
+                                ) : (
+                                  <Form.Item label="預估膜厚 (μm)">
+                                    <InputNumber style={{ width: '100%' }} min={0} value={workpiece.estimatedFilmThicknessUm} onChange={(v) => update({ estimatedFilmThicknessUm: v ?? undefined })} />
+                                  </Form.Item>
+                                )}
                               </Col>
                               <Col span={12}>
                                 <Form.Item label="包裝方式">
@@ -617,8 +723,41 @@ export default function QuotationWizard() {
                 <Form layout="vertical">
                   <Row gutter={12}>
                     <Col span={8}>
-                      <Form.Item label="掛件數">
-                        <InputNumber style={{ width: '100%' }} min={0} value={workpiece.hangCount} onChange={(v) => update({ hangCount: v ?? 0 })} />
+                      <Form.Item
+                        label="掛件數（每盤）"
+                        help={
+                          hangOccupancy !== undefined ? (
+                            <span>
+                              建議 {hangOccupancy.piecesPerRack} 件／盤：最長邊{' '}
+                              {liveBilling.longestEdgeCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm ÷{' '}
+                              {hangOccupancy.hookSlotLengthCm} cm = 佔 {hangOccupancy.hookSlotsPerPiece} 勾／
+                              {hangOccupancy.hooksPerRack} 勾一盤
+                              {hangCountManuallySet && (
+                                <a
+                                  style={{ marginLeft: 6 }}
+                                  onClick={() => {
+                                    setHangCountManuallySet(false);
+                                    setLastAppliedHangSuggestion(undefined);
+                                  }}
+                                >
+                                  套用建議值
+                                </a>
+                              )}
+                            </span>
+                          ) : (
+                            '要自動建議請先到「系統設定」填每掛勾位可容納長度與每支吊盤掛勾數'
+                          )
+                        }
+                      >
+                        <InputNumber
+                          style={{ width: '100%' }}
+                          min={0}
+                          value={workpiece.hangCount}
+                          onChange={(v) => {
+                            setHangCountManuallySet(true);
+                            update({ hangCount: v ?? 0 });
+                          }}
+                        />
                       </Form.Item>
                     </Col>
                     <Col span={8}>
@@ -662,6 +801,17 @@ export default function QuotationWizard() {
                       </Form.Item>
                     </Col>
                   </Row>
+                  <Form.Item
+                    label={`${isChiBilling ? '每尺' : '每才'}單價 ($，選填)`}
+                    extra={`有填才會出現「單價法報價」這一檔：單件${isChiBilling ? '尺' : '才'}數 × 單價 × 數量。成本仍照常計算，用來檢核這個開價的毛利。`}
+                  >
+                    <InputNumber
+                      style={{ width: '100%' }}
+                      min={0}
+                      value={workpiece.billingUnitPrice}
+                      onChange={(v) => update({ billingUnitPrice: v ?? undefined })}
+                    />
+                  </Form.Item>
                   <Form.Item label="預估生產工時（選填，留空則依批次數自動估算）">
                     <InputNumber style={{ width: '100%' }} min={0} value={workpiece.estimatedProcessingHours} onChange={(v) => update({ estimatedProcessingHours: v ?? undefined })} />
                   </Form.Item>
@@ -706,6 +856,11 @@ export default function QuotationWizard() {
                         { value: 'cost', label: '成本價' },
                         { value: 'standard', label: '標準報價' },
                         { value: 'high_margin', label: '高毛利報價' },
+                        {
+                          value: 'unit_price',
+                          label: `單價法報價（${isChiBilling ? '每尺' : '每才'}單價）`,
+                          disabled: !result?.suggestion.tiers.unit_price,
+                        },
                         { value: 'custom', label: '自訂價格' },
                       ]}
                     />
@@ -733,15 +888,32 @@ export default function QuotationWizard() {
               {result && (
                 <>
                   <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 }}>
-                    <Space>
-                      <Tag color="blue">公式 {result.breakdown.formulaCode}</Tag>
-                      <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
-                        {result.breakdown.totalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²
-                      </span>
-                    </Space>
-                    <span>
-                      <strong>{result.breakdown.caiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> 才
-                    </span>
+                    {result.breakdown.billingUnit === 'chi' ? (
+                      <>
+                        <Space>
+                          <Tag color="orange">尺（長度）</Tag>
+                          <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                            寬 {result.breakdown.billingWidthCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm
+                            ／最長邊 {result.breakdown.longestEdgeCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm
+                          </span>
+                        </Space>
+                        <span>
+                          <strong>{result.breakdown.chiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> 尺
+                        </span>
+                      </>
+                    ) : (
+                      <>
+                        <Space>
+                          <Tag color="blue">公式 {result.breakdown.formulaCode}</Tag>
+                          <span style={{ fontSize: 13, color: 'rgba(0,0,0,0.65)' }}>
+                            {result.breakdown.totalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²
+                          </span>
+                        </Space>
+                        <span>
+                          <strong>{result.breakdown.caiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</strong> 才
+                        </span>
+                      </>
+                    )}
                   </div>
                   <Space orientation="vertical" style={{ width: '100%' }} size={4}>
                     <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -798,6 +970,21 @@ export default function QuotationWizard() {
                       </Col>
                     ))}
                   </Row>
+                  {result.suggestion.tiers.unit_price && (
+                    <Card size="small" variant="borderless" style={{ background: '#f6ffed', textAlign: 'center', marginTop: 12 }}>
+                      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+                        單價法報價（{result.breakdown.billingUnit === 'chi' ? '每尺' : '每才'}）
+                      </div>
+                      <div style={{ fontSize: 20, fontWeight: 600 }}>
+                        ${Math.round(result.suggestion.tiers.unit_price.price).toLocaleString()}
+                      </div>
+                      <div style={{ fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
+                        {result.suggestion.billingQuantityPerUnit.toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                        {result.breakdown.billingUnit === 'chi' ? ' 尺' : ' 才'} × ${workpiece.billingUnitPrice} × {workpiece.quantity} 件
+                        ／毛利率 {result.suggestion.tiers.unit_price.marginRatePercent.toFixed(1)}%
+                      </div>
+                    </Card>
+                  )}
                   {selectedMaterial && (
                     <p style={{ marginTop: 12, fontSize: 12, color: 'rgba(0,0,0,0.45)' }}>
                       粉料單價：${selectedMaterial.currentPricePerKg}/kg

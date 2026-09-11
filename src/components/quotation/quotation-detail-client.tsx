@@ -11,7 +11,10 @@ interface QuotationItem {
   workpieceName: string;
   quantity: number;
   formulaCode?: string;
+  billingUnit?: 'cai' | 'chi';
   caiCount?: number;
+  chiCount?: number;
+  billingUnitPrice?: number;
   costBreakdown: { totalCost: number };
   chosenPrice: number;
   marginRatePercent: number;
@@ -141,7 +144,19 @@ export default function QuotationDetailClient({ id }: { id: string }) {
                 { title: '工件名稱', dataIndex: 'workpieceName', key: 'workpieceName' },
                 { title: '數量', dataIndex: 'quantity', key: 'quantity' },
                 { title: '公式', dataIndex: 'formulaCode', key: 'formulaCode', render: (v?: string) => (v ? <Tag color="blue">{v}</Tag> : '-') },
-                { title: '才數', dataIndex: 'caiCount', key: 'caiCount', render: (v?: number) => (v != null ? `${v.toFixed(2)} 才` : '-') },
+                {
+                  // 才是面積單位、尺是長度單位，兩者互斥，同一列只會顯示其中一種
+                  title: '才數／尺數',
+                  key: 'billingQuantity',
+                  render: (_: unknown, row: QuotationItem) => {
+                    const isChi = row.billingUnit === 'chi';
+                    const value = isChi ? row.chiCount : row.caiCount;
+                    if (value == null) return '-';
+                    const label = `${value.toFixed(2)} ${isChi ? '尺' : '才'}`;
+                    // 有單價法報價時一併顯示當初凍結的單價，方便對帳
+                    return row.billingUnitPrice != null ? `${label} @ $${row.billingUnitPrice}` : label;
+                  },
+                },
                 { title: '成本', dataIndex: ['costBreakdown', 'totalCost'], key: 'cost', render: (v: number) => `$${Math.round(v).toLocaleString()}` },
                 { title: '報價', dataIndex: 'chosenPrice', key: 'chosenPrice', render: (v: number) => `$${Math.round(v).toLocaleString()}` },
                 { title: '毛利率', dataIndex: 'marginRatePercent', key: 'marginRatePercent', render: (v: number) => `${v.toFixed(1)}%` },

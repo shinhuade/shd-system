@@ -4,7 +4,7 @@ import { useEffect, useState } from 'react';
 import { App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Statistic, Table } from 'antd';
 import dayjs from 'dayjs';
 
-const FIELDS: { name: string; label: string; suffix?: string; max?: number }[] = [
+const FIELDS: { name: string; label: string; suffix?: string; max?: number; optional?: boolean }[] = [
   { name: 'defaultMaterialLossRatePercent', label: '預設粉料損耗率', suffix: '%', max: 100 },
   { name: 'standardMarkupPercent', label: '標準報價加成率', suffix: '%' },
   { name: 'highMarginMarkupPercent', label: '高毛利報價加成率', suffix: '%' },
@@ -14,6 +14,10 @@ const FIELDS: { name: string; label: string; suffix?: string; max?: number }[] =
   { name: 'transferEfficiencyPercent', label: '噴塗轉移率', suffix: '%', max: 100 },
   { name: 'standardMonthlyOperatingHours', label: '每月標準工時', suffix: '小時' },
   { name: 'standardCycleHoursPerBatch', label: '每批次標準加工工時', suffix: '小時' },
+  // 產線吊掛：長件橫掛會佔掉多個掛勾位，這兩個值讓報價精靈能依長度自動建議掛件數。
+  // 選填，兩者任一沒填就不做自動建議，掛件數改由使用者自行輸入。
+  { name: 'hookSlotLengthCm', label: '每掛勾位可容納長度', suffix: 'cm', optional: true },
+  { name: 'hooksPerRack', label: '每支吊盤掛勾數', suffix: '勾', optional: true },
 ];
 
 interface SystemSettings {
@@ -105,7 +109,12 @@ export default function SystemSettingsPage() {
           <Row gutter={[16, 16]}>
             {FIELDS.map((f) => (
               <Col xs={12} sm={8} lg={24 / 5} key={f.name}>
-                <Statistic title={f.label} value={(current[f.name] as number) ?? 0} suffix={f.suffix} styles={{ content: { fontSize: 16 } }} />
+                <Statistic
+                  title={f.label}
+                  value={(current[f.name] as number) ?? (f.optional ? '未設定' : 0)}
+                  suffix={current[f.name] != null || !f.optional ? f.suffix : undefined}
+                  styles={{ content: { fontSize: 16 } }}
+                />
               </Col>
             ))}
           </Row>
@@ -120,7 +129,11 @@ export default function SystemSettingsPage() {
           <Row gutter={16}>
             {FIELDS.map((f) => (
               <Col xs={24} sm={12} lg={8} key={f.name}>
-                <Form.Item name={f.name} label={f.label} rules={[{ required: true, message: `請輸入${f.label}` }]}>
+                <Form.Item
+                  name={f.name}
+                  label={f.label}
+                  rules={f.optional ? undefined : [{ required: true, message: `請輸入${f.label}` }]}
+                >
                   <InputNumber style={{ width: '100%' }} min={0} max={f.max} suffix={f.suffix} />
                 </Form.Item>
               </Col>
@@ -149,7 +162,7 @@ export default function SystemSettingsPage() {
               title: f.label,
               dataIndex: f.name,
               key: f.name,
-              render: (v: number) => `${v ?? 0}${f.suffix || ''}`,
+              render: (v: number) => (v == null ? (f.optional ? '-' : '0') : `${v}${f.suffix || ''}`),
             })),
             { title: '備註', dataIndex: 'note', key: 'note', ellipsis: true },
           ]}

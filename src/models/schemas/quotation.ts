@@ -1,7 +1,8 @@
 import { z } from 'zod';
 
 export const QUOTATION_STATUSES = ['draft', 'final'] as const;
-export const QUOTATION_TIERS = ['cost', 'standard', 'high_margin', 'custom'] as const;
+export const QUOTATION_TIERS = ['cost', 'standard', 'high_margin', 'unit_price', 'custom'] as const;
+export type QuotationTier = (typeof QUOTATION_TIERS)[number];
 
 export const QuotationSchema = z
   .object({
