@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from 'mongoose';
 import { commonOptions } from '@/lib/db';
 import { QuotationInput, QUOTATION_STATUSES, QUOTATION_TIERS } from './schemas/quotation';
+import { QUOTE_MODES } from './schemas/quotation-item';
 
 export interface IQuotation
   extends Omit<QuotationInput, 'customerId' | 'createdBy' | 'pricingConfigSnapshotId' | 'processingParamsSnapshotId'>,
@@ -14,6 +15,7 @@ export interface IQuotation
 const QuotationSchema: Schema = new Schema(
   {
     quotationNo: { type: String, required: true, unique: true },
+    quoteMode: { type: String, enum: QUOTE_MODES, default: 'wizard' },
     customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
     quotationDate: { type: Date, required: true },
     status: { type: String, enum: QUOTATION_STATUSES, default: 'draft' },

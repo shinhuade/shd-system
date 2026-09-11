@@ -14,8 +14,9 @@ export const metadata: Metadata = {
 export const viewport: Viewport = {
   width: 'device-width',
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
+  // 允許使用者在手機上放大檢視細節（輸入框字級已拉到 16px，不會觸發 iOS 自動縮放）
+  maximumScale: 5,
+  userScalable: true,
   viewportFit: 'cover',
 };
 

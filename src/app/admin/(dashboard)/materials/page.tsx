@@ -2,9 +2,13 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Switch, Table, Tag } from 'antd';
+import styled from 'styled-components';
+import { App, Button, Card, Form, Input, Modal, Popconfirm, Segmented, Select, Space, Switch, Tag } from 'antd';
 import { Plus, Trash } from '@styled-icons/fa-solid';
 import { COLOR_FAMILY_OPTIONS } from '@/models/schemas/material';
+import PageHeader from '@/components/page-header';
+import { useIsMobile } from '@/hooks/use-media-query';
+import ResponsiveTable from '@/components/responsive-table';
 
 interface Material {
   _id: string;
@@ -23,6 +27,7 @@ type GroupBy = 'none' | 'colorFamily' | 'supplierName';
 
 export default function MaterialsPage() {
   const router = useRouter();
+  const isMobile = useIsMobile();
   const { message } = App.useApp();
   const [data, setData] = useState<Material[]>([]);
   const [loading, setLoading] = useState(true);
@@ -107,19 +112,21 @@ export default function MaterialsPage() {
 
   return (
     <section>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-        <div>
-          <h1 style={{ fontSize: 28, marginBottom: 8 }}>粉料管理</h1>
-          <p style={{ color: 'rgba(0,0,0,0.45)' }}>維護粉料單價與損耗率，所有變動都會保留歷史版本</p>
-        </div>
-        <Button type="primary" icon={<Plus size={14} />} onClick={() => setModalOpen(true)}>
-          新增粉料
-        </Button>
-      </div>
+      <PageHeader
+        title="粉料管理"
+        description="維護粉料單價與損耗率，所有變動都會保留歷史版本"
+        extra={
+          <Button type="primary" icon={<Plus size={14} />} onClick={() => setModalOpen(true)}>
+            新增粉料
+          </Button>
+        }
+      />
 
-      <div style={{ display: 'flex', alignItems: 'center', gap: 12, marginBottom: 12 }}>
-        <span style={{ color: 'rgba(0,0,0,0.45)' }}>排列整理：</span>
+      <SortRow>
+        <span className="label">排列整理：</span>
         <Segmented
+          // 手機版才平均分配寬度；桌機維持依文字長度自動排列，避免標籤被截斷
+          block={isMobile}
           value={groupBy}
           onChange={(v) => setGroupBy(v as GroupBy)}
           options={[
@@ -128,26 +135,34 @@ export default function MaterialsPage() {
             { label: '依廠商', value: 'supplierName' },
           ]}
         />
-      </div>
+      </SortRow>
 
       <Card variant="borderless">
-        <Table
+        <ResponsiveTable<Material>
           rowKey="_id"
           loading={loading}
           dataSource={sortedData}
           pagination={{ pageSize: 20 }}
           onRow={(record) => ({ onClick: () => router.push(`/admin/materials/${record._id}`), style: { cursor: 'pointer' } })}
           columns={[
-            { title: '編號', dataIndex: 'materialCode', key: 'materialCode', sorter: (a, b) => a.materialCode.localeCompare(b.materialCode) },
+            {
+              title: '編號',
+              dataIndex: 'materialCode',
+              key: 'materialCode',
+              sorter: (a, b) => a.materialCode.localeCompare(b.materialCode),
+              mobileHidden: true,
+            },
             {
               title: '顏色',
               dataIndex: 'colorName',
               key: 'colorName',
+              mobilePrimary: true,
               sorter: (a, b) => a.colorName.localeCompare(b.colorName),
               render: (v: string, record) => (
                 <Space>
                   {record.colorHex && <span style={{ display: 'inline-block', width: 14, height: 14, borderRadius: '50%', background: record.colorHex, border: '1px solid #ddd' }} />}
-                  {v}
+                  <span>{v}</span>
+                  <MobileOnlyCode>{record.materialCode}</MobileOnlyCode>
                 </Space>
               ),
             },
@@ -224,3 +239,41 @@ export default function MaterialsPage() {
     </section>
   );
 }
+
+const SortRow = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+
+  .label {
+    color: rgba(0, 0, 0, 0.45);
+    flex-shrink: 0;
+  }
+
+  /* 手機上「排列整理」占滿整行，三個選項平均分配寬度好點按 */
+  @media (max-width: 768px) {
+    gap: 8px;
+
+    .label {
+      font-size: 13px;
+    }
+
+    .ant-segmented {
+      flex: 1;
+      min-width: 0;
+    }
+  }
+`;
+
+/** 手機版卡片標題同時顯示粉料編號（桌機表格已有獨立欄位） */
+const MobileOnlyCode = styled.span`
+  display: none;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  font-weight: 400;
+
+  @media (max-width: 768px) {
+    display: inline;
+  }
+`;

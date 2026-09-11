@@ -1,7 +1,9 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { Card, Table, Tabs, Tag } from 'antd';
+import { Card, Tabs, Tag } from 'antd';
+import PageHeader from '@/components/page-header';
+import ResponsiveTable from '@/components/responsive-table';
 import AdminGenericList from '@/components/admin-generic-list';
 import customerConfig from '@/configs/admin/customer.json';
 import type { AdminConfig } from '@/types/admin-config';
@@ -48,12 +50,13 @@ function CustomerMarginTable() {
 
   return (
     <Card variant="borderless">
-      <Table
+      <ResponsiveTable<CustomerMargin>
         rowKey="customerId"
         loading={loading}
         dataSource={data}
+        emptyText="尚無報價資料可分析"
         columns={[
-          { title: '客戶', dataIndex: 'customerName', key: 'customerName' },
+          { title: '客戶', dataIndex: 'customerName', key: 'customerName', mobilePrimary: true },
           { title: '報價次數', dataIndex: 'quotationCount', key: 'quotationCount' },
           { title: '總營收', dataIndex: 'totalRevenue', key: 'totalRevenue', render: (v: number) => `$${Math.round(v).toLocaleString()}` },
           { title: '總毛利', dataIndex: 'totalMargin', key: 'totalMargin', render: (v: number) => `$${Math.round(v).toLocaleString()}` },
@@ -75,10 +78,7 @@ function CustomerMarginTable() {
 export default function CustomerAnalysisPage() {
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>客戶分析</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>掌握每個客戶的毛利表現，找出低於公司標準的客戶</p>
-      </div>
+      <PageHeader title="客戶分析" description="掌握每個客戶的毛利表現，找出低於公司標準的客戶" />
 
       <Tabs
         items={[

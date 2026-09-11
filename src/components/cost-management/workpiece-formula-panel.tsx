@@ -1,8 +1,10 @@
 'use client';
 
 import { useEffect, useState } from 'react';
-import { App, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Switch, Table, Tag } from 'antd';
+import { App, Button, Card, Form, Input, InputNumber, Modal, Popconfirm, Space, Switch, Tag } from 'antd';
 import { Plus, Pen, Trash } from '@styled-icons/fa-solid';
+import ResponsiveTable from '@/components/responsive-table';
+import { DEFAULT_FORMULA_TEMPLATES } from '@/models/schemas/workpiece-formula-template';
 
 interface FormulaTemplate {
   _id: string;
@@ -26,6 +28,7 @@ export default function WorkpieceFormulaPanel() {
   const [loading, setLoading] = useState(true);
   const [modalTarget, setModalTarget] = useState<FormulaTemplate | 'new' | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [seeding, setSeeding] = useState(false);
   const [form] = Form.useForm();
 
   useEffect(() => {
@@ -99,6 +102,45 @@ export default function WorkpieceFormulaPanel() {
     }
   };
 
+  /** 把長條型／箱體型／平板型三個基本型態存成正式範本（已存在同代碼者略過） */
+  const onSeedDefaults = async () => {
+    setSeeding(true);
+    try {
+      const existingCodes = new Set(items.map((item) => item.code));
+      const missing = DEFAULT_FORMULA_TEMPLATES.filter(
+        (template) => !existingCodes.has(`${template.lwFaces}${template.lhFaces}${template.whFaces}`),
+      );
+
+      if (missing.length === 0) {
+        message.info('三個基本型態都已經建立過了');
+        return;
+      }
+
+      for (const template of missing) {
+        const res = await fetch('/api/admin/workpiece-formula-templates', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            name: template.name,
+            lwFaces: template.lwFaces,
+            lhFaces: template.lhFaces,
+            whFaces: template.whFaces,
+            isActive: true,
+          }),
+        });
+        const result = await res.json();
+        if (!res.ok) throw new Error(result.message || '建立失敗');
+      }
+
+      message.success(`已建立 ${missing.map((t) => t.name).join('、')}`);
+      await reload();
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
+    } finally {
+      setSeeding(false);
+    }
+  };
+
   const onDelete = async (id: string) => {
     try {
       const res = await fetch(`/api/admin/workpiece-formula-templates/${id}`, { method: 'DELETE' });
@@ -115,22 +157,39 @@ export default function WorkpieceFormulaPanel() {
     <>
       <p style={{ color: 'rgba(0,0,0,0.45)', marginBottom: 12 }}>
         面數公式：長×寬（前後）/長×高（左右）/寬×高（上下）三個方向各自需要計價的面數（0~2），組成公式代碼（例如
-        222 完整箱體、221 無蓋箱體、112 洞洞板類）。修改或刪除範本不會影響已建立的報價，因為每筆報價都會保留當下的面數快照。
+        222 箱體型、221 無蓋箱體、220 長條型、200 平板型）。報價畫面本來就會顯示長條型／箱體型／平板型三個基本型態，
+        按「建立基本型態範本」可以把它們存成正式範本後再自行調整。修改或刪除範本不會影響已建立的報價，
+        因為每筆報價都會保留當下的面數快照。
       </p>
-      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: 12 }}>
+      <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 8, marginBottom: 12, flexWrap: 'wrap' }}>
+        <Button loading={seeding} onClick={onSeedDefaults}>
+          建立基本型態範本
+        </Button>
         <Button icon={<Plus size={14} />} onClick={openCreate}>
           新增範本
         </Button>
       </div>
 
       <Card variant="borderless">
-        <Table
+        <ResponsiveTable<FormulaTemplate>
           rowKey="_id"
           loading={loading}
           dataSource={items}
+          emptyText="尚未建立任何範本"
           columns={[
             { title: '公式', dataIndex: 'code', key: 'code', render: (v: string) => <Tag color="blue">{v}</Tag> },
-            { title: '名稱', dataIndex: 'name', key: 'name' },
+            {
+              title: '名稱',
+              dataIndex: 'name',
+              key: 'name',
+              mobilePrimary: true,
+              render: (v: string, record) => (
+                <Space>
+                  <span>{v}</span>
+                  <Tag color="blue">{record.code}</Tag>
+                </Space>
+              ),
+            },
             { title: '長×寬（前後）', dataIndex: 'lwFaces', key: 'lwFaces', render: (v: number) => `${v} 面` },
             { title: '長×高（左右）', dataIndex: 'lhFaces', key: 'lhFaces', render: (v: number) => `${v} 面` },
             { title: '寬×高（上下）', dataIndex: 'whFaces', key: 'whFaces', render: (v: number) => `${v} 面` },

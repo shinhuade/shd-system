@@ -2,9 +2,10 @@
 
 import { useEffect, useState } from 'react';
 import { App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Row, Statistic, Table } from 'antd';
+import PageHeader from '@/components/page-header';
 import dayjs from 'dayjs';
 
-const FIELDS: { name: string; label: string; suffix?: string; max?: number; optional?: boolean }[] = [
+const FIELDS: { name: string; label: string; suffix?: string; max?: number; optional?: boolean; hint?: string }[] = [
   { name: 'defaultMaterialLossRatePercent', label: '預設粉料損耗率', suffix: '%', max: 100 },
   { name: 'standardMarkupPercent', label: '標準報價加成率', suffix: '%' },
   { name: 'highMarginMarkupPercent', label: '高毛利報價加成率', suffix: '%' },
@@ -14,9 +15,15 @@ const FIELDS: { name: string; label: string; suffix?: string; max?: number; opti
   { name: 'transferEfficiencyPercent', label: '噴塗轉移率', suffix: '%', max: 100 },
   { name: 'standardMonthlyOperatingHours', label: '每月標準工時', suffix: '小時' },
   { name: 'standardCycleHoursPerBatch', label: '每批次標準加工工時', suffix: '小時' },
-  // 產線吊掛：長件橫掛會佔掉多個掛勾位，這兩個值讓報價精靈能依長度自動建議掛件數。
+  // 產線吊掛：長件橫掛會佔掉多個掛勾位，這兩個值讓精算報價能依長度自動建議掛件數。
   // 選填，兩者任一沒填就不做自動建議，掛件數改由使用者自行輸入。
-  { name: 'hookSlotLengthCm', label: '每掛勾位可容納長度', suffix: 'cm', optional: true },
+  {
+    name: 'hookSlotLengthCm',
+    label: '每掛勾位可容納長度',
+    suffix: 'cm',
+    optional: true,
+    hint: '與「每支吊盤掛勾數」兩者都填寫後，才會依工件長度自動建議掛件數。',
+  },
   { name: 'hooksPerRack', label: '每支吊盤掛勾數', suffix: '勾', optional: true },
 ];
 
@@ -99,10 +106,10 @@ export default function SystemSettingsPage() {
 
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>系統設定</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>報價引擎使用的全域係數（加成率、損耗率預設值、漲價提醒門檻等），每次調整都保留版本</p>
-      </div>
+      <PageHeader
+        title="系統設定"
+        description="報價引擎使用的全域係數（加成率、損耗率預設值、漲價提醒門檻等），每次調整都保留版本"
+      />
 
       {current && (
         <Card variant="borderless" style={{ marginBottom: 16 }} loading={loading}>
@@ -112,7 +119,7 @@ export default function SystemSettingsPage() {
                 <Statistic
                   title={f.label}
                   value={(current[f.name] as number) ?? (f.optional ? '未設定' : 0)}
-                  suffix={current[f.name] != null || !f.optional ? f.suffix : undefined}
+                  suffix={current[f.name] != null ? f.suffix : undefined}
                   styles={{ content: { fontSize: 16 } }}
                 />
               </Col>
@@ -132,6 +139,7 @@ export default function SystemSettingsPage() {
                 <Form.Item
                   name={f.name}
                   label={f.label}
+                  extra={f.hint}
                   rules={f.optional ? undefined : [{ required: true, message: `請輸入${f.label}` }]}
                 >
                   <InputNumber style={{ width: '100%' }} min={0} max={f.max} suffix={f.suffix} />
@@ -142,7 +150,7 @@ export default function SystemSettingsPage() {
           <Form.Item name="note" label="備註">
             <Input.TextArea rows={2} />
           </Form.Item>
-          <Button type="primary" loading={submitting} onClick={onSubmit}>
+          <Button type="primary" block loading={submitting} onClick={onSubmit}>
             儲存新版本
           </Button>
         </Form>
@@ -155,7 +163,7 @@ export default function SystemSettingsPage() {
           loading={loading}
           dataSource={history}
           pagination={{ pageSize: 6 }}
-          scroll={{ x: true }}
+          scroll={{ x: 'max-content' }}
           columns={[
             { title: '生效日期', dataIndex: 'effectiveDate', key: 'effectiveDate', render: (v: string) => dayjs(v).format('YYYY-MM-DD') },
             ...FIELDS.map((f) => ({

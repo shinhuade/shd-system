@@ -1,6 +1,7 @@
 'use client';
 
 import { Card, Col, Row, Statistic, Skeleton, Tag } from 'antd';
+import { resolveCostCategoryLabel } from '@/models/schemas/cost-record';
 
 export interface DashboardSummary {
   periodMonth: string;
@@ -14,15 +15,7 @@ export interface DashboardSummary {
   alerts: { red: number; orange: number; yellow: number; isStable: boolean };
 }
 
-const CATEGORY_LABELS: Record<string, string> = {
-  material: '粉料成本',
-  packaging: '包材成本',
-  gas: '瓦斯成本',
-  water: '水費',
-  electricity: '電費',
-  labor: '人工成本',
-  fixed_other: '其他固定成本',
-};
+// 類別標籤與「每月成本紀錄」共用同一份定義，新增自訂類別時不需要改這裡
 
 function ChangeTag({ value, label }: { value: number; label: string }) {
   const isUp = value > 0;
@@ -39,7 +32,7 @@ export default function SummaryCards({ summary, loading }: { summary: DashboardS
     return (
       <Row gutter={[16, 16]}>
         {Array.from({ length: 4 }).map((_, i) => (
-          <Col xs={24} sm={12} lg={6} key={i}>
+          <Col xs={12} sm={12} lg={6} key={i}>
             <Card variant="borderless">
               <Skeleton active paragraph={{ rows: 1 }} />
             </Card>
@@ -52,12 +45,12 @@ export default function SummaryCards({ summary, loading }: { summary: DashboardS
   return (
     <>
       <Row gutter={[16, 16]}>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月營收" value={summary.revenue} precision={0} prefix="$" />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月總成本" value={summary.totalCost} precision={0} prefix="$" />
             <div style={{ marginTop: 8, display: 'flex', gap: 8, flexWrap: 'wrap' }}>
@@ -66,12 +59,12 @@ export default function SummaryCards({ summary, loading }: { summary: DashboardS
             </div>
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月毛利" value={summary.marginAmount} precision={0} prefix="$" />
           </Card>
         </Col>
-        <Col xs={24} sm={12} lg={6}>
+        <Col xs={12} sm={12} lg={6}>
           <Card variant="borderless">
             <Statistic title="本月毛利率" value={summary.marginRatePercent} precision={1} suffix="%" />
           </Card>
@@ -80,9 +73,15 @@ export default function SummaryCards({ summary, loading }: { summary: DashboardS
 
       <Row gutter={[16, 16]} style={{ marginTop: 16 }}>
         {Object.entries(summary.costByCategory).map(([category, amount]) => (
-          <Col xs={12} sm={8} lg={24 / 7} key={category}>
+          <Col xs={12} sm={8} lg={6} key={category}>
             <Card variant="borderless" size="small">
-              <Statistic title={CATEGORY_LABELS[category] || category} value={amount} precision={0} prefix="$" styles={{ content: { fontSize: 18 } }} />
+              <Statistic
+                title={resolveCostCategoryLabel(category)}
+                value={amount}
+                precision={0}
+                prefix="$"
+                styles={{ content: { fontSize: 18 } }}
+              />
             </Card>
           </Col>
         ))}

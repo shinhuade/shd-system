@@ -72,6 +72,7 @@ const Wrapper = styled.main`
   display: flex;
   justify-content: center;
   align-items: center;
+  padding: 24px 0 calc(24px + env(safe-area-inset-bottom));
 `;
 
 const LoginCard = styled.div`
@@ -82,6 +83,11 @@ const LoginCard = styled.div`
   border-radius: 8px;
   margin: auto;
   padding: 40px;
+
+  /* 手機版縮小卡片留白，鍵盤跳出時仍看得到輸入框 */
+  @media (max-width: 768px) {
+    padding: 24px 20px;
+  }
 
   & > .title {
     text-align: center;

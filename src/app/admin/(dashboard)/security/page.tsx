@@ -1,10 +1,9 @@
 'use client';
 
 import { useState } from 'react';
-import { Card, Form, Input, Button, Typography, App } from 'antd';
+import { Card, Form, Input, Button, App } from 'antd';
 import { passwordUpdateInput } from '@/models/schemas/admin';
-
-const { Title } = Typography;
+import PageHeader from '@/components/page-header';
 
 const SECURITY_FIELD_KEYS: Array<keyof passwordUpdateInput> = ['currentPassword', 'newPassword', 'confirmPassword'];
 
@@ -61,9 +60,7 @@ export default function AccountSecurityPage() {
 
   return (
     <section>
-      <Title level={3} style={{ marginBottom: 16 }}>
-        帳號安全
-      </Title>
+      <PageHeader title="帳號安全" description="定期更新密碼，保護報價與成本資料" />
 
       <Card variant="borderless" style={{ maxWidth: 600 }}>
         <Form<passwordUpdateInput> form={form} layout="vertical" onFinish={onSubmit}>
@@ -102,7 +99,7 @@ export default function AccountSecurityPage() {
             <Input.Password placeholder="請再次輸入新密碼" />
           </Form.Item>
 
-          <Button type="primary" htmlType="submit" loading={saving}>
+          <Button type="primary" htmlType="submit" block loading={saving}>
             更新密碼
           </Button>
         </Form>

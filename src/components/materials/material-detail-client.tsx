@@ -2,11 +2,12 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Col, Form, Input, Modal, Row, Select, Space, Statistic, Switch, Tag } from 'antd';
+import { App, Button, Card, Col, Form, Input, Modal, Row, Select, Statistic, Switch, Tag } from 'antd';
 import { Plus, ArrowLeft, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
+import PageHeader from '@/components/page-header';
 import { COLOR_FAMILY_OPTIONS } from '@/models/schemas/material';
 
 interface Material {
@@ -140,32 +141,32 @@ export default function MaterialDetailClient({ id }: { id: string }) {
 
       {material && (
         <>
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, flexWrap: 'wrap', gap: 12 }}>
-            <div>
-              <h1 style={{ fontSize: 24, marginBottom: 4 }}>
-                {material.colorName}（{material.materialCode}）
-              </h1>
-              <p style={{ color: 'rgba(0,0,0,0.45)' }}>
+          <PageHeader
+            title={`${material.colorName}（${material.materialCode}）`}
+            description={
+              <>
                 {material.supplierName || '未設定廠商'}
                 {material.colorFamily && <Tag style={{ marginLeft: 8 }}>{material.colorFamily}</Tag>}
-              </p>
-            </div>
-            <Space.Compact>
-              <Button icon={<Pen size={14} />} onClick={openEditInfo}>
-                編輯基本資料
-              </Button>
-              <Button
-                type="primary"
-                icon={<Plus size={14} />}
-                onClick={() => {
-                  setEditingHistory(null);
-                  setVersionModalOpen(true);
-                }}
-              >
-                新增價格版本
-              </Button>
-            </Space.Compact>
-          </div>
+              </>
+            }
+            extra={
+              <>
+                <Button icon={<Pen size={14} />} onClick={openEditInfo}>
+                  編輯基本資料
+                </Button>
+                <Button
+                  type="primary"
+                  icon={<Plus size={14} />}
+                  onClick={() => {
+                    setEditingHistory(null);
+                    setVersionModalOpen(true);
+                  }}
+                >
+                  新增價格版本
+                </Button>
+              </>
+            }
+          />
 
           <Row gutter={[16, 16]}>
             <Col xs={24} sm={8}>
@@ -179,7 +180,7 @@ export default function MaterialDetailClient({ id }: { id: string }) {
                 )}
               </Card>
             </Col>
-            <Col xs={24} sm={8}>
+            <Col xs={12} sm={8}>
               <Card variant="borderless">
                 <Statistic
                   title="目前損耗率"
@@ -188,7 +189,7 @@ export default function MaterialDetailClient({ id }: { id: string }) {
                 />
               </Card>
             </Col>
-            <Col xs={24} sm={8}>
+            <Col xs={12} sm={8}>
               <Card variant="borderless">
                 <Statistic title="狀態" value={material.isActive ? '啟用中' : '停用'} />
               </Card>

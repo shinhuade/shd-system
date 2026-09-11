@@ -1,5 +1,6 @@
 'use client';
 
+import styled from 'styled-components';
 import { Card, Button, Empty, Tag, Space, Typography } from 'antd';
 import { ArrowsRotate } from '@styled-icons/fa-solid';
 
@@ -57,8 +58,8 @@ export default function AlertBanner({
             const meta = SEVERITY_META[alert.severity];
             return (
               <Card key={alert._id} size="small" variant="borderless" style={{ background: '#fafafa' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 12, flexWrap: 'wrap' }}>
-                  <div>
+                <AlertRow>
+                  <div className="info">
                     <Tag color={meta.color}>
                       {meta.emoji} {meta.label}
                     </Tag>
@@ -71,15 +72,15 @@ export default function AlertBanner({
                       建議新報價 ${Math.round(alert.suggestedNewPrice).toLocaleString()}
                     </div>
                   </div>
-                  <Space>
+                  <div className="actions">
                     <Button size="small" onClick={() => onAcknowledge(alert._id)}>
                       已知悉
                     </Button>
                     <Button size="small" onClick={() => onDismiss(alert._id)}>
                       忽略
                     </Button>
-                  </Space>
-                </div>
+                  </div>
+                </AlertRow>
               </Card>
             );
           })}
@@ -88,3 +89,33 @@ export default function AlertBanner({
     </Card>
   );
 }
+
+const AlertRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+  flex-wrap: wrap;
+
+  .info {
+    flex: 1;
+    min-width: 0;
+  }
+
+  .actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* 手機上兩顆處理鈕排成一列並撐滿，避免被文字擠到邊緣 */
+  @media (max-width: 768px) {
+    .actions {
+      width: 100%;
+
+      .ant-btn {
+        flex: 1;
+        height: 36px;
+      }
+    }
+  }
+`;

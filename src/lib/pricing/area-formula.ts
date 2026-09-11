@@ -10,12 +10,22 @@ import { Dimensions, BillingUnit } from './types';
  * - 1 尺 = 30 cm（與 1 才 = 30×30 cm 同一套台制換算）。
  * - 長寬高單位一律為「公分 (cm)」。
  *
- * 走「才」時：三個方向 L×W（前後）、L×H（左右）、W×H（上下）各自需要指定「面數」(0~2)，
- * 由公式範本（例如 222 完整箱體、221 無蓋箱體、112 洞洞板類）決定。
+ * 走「才」時：三個方向各自需要指定「面數」，由公式代碼的三位數字依序決定：
+ *     第 1 位 = 長×寬（前後）面數
+ *     第 2 位 = 長×高（左右）面數
+ *     第 3 位 = 寬×高（上下）面數
+ *   例如 222 完整箱體、221 無蓋箱體、112 洞洞板類。
+ *
+ *   面數組合一律由「面數公式範本」（WorkpieceFormulaTemplate）提供，
+ *   未來新增 111 / 121 / 122 / 211 / 212 / 101 等公式只要在後台新增範本即可，
+ *   不需要改動這個引擎，也不可把公式寫死在 UI。
+ *
  * 走「尺」時：面數公式與面積完全不適用，尺數 = 最長邊 ÷ 30。
  *
  * 才數與尺數一律是「單件」數量，兩者在成本計算裡站在同一個位階，
  * 要換算成整批時一律由呼叫端自行乘上數量，計算層不預先乘進去。
+ *
+ * 快速報價與精算報價共用本檔案的計算結果。
  */
 export interface FaceCounts {
   lwFaces: number;
@@ -72,7 +82,10 @@ export function resolveBillingUnit(dimensions: Dimensions | undefined): BillingU
   };
 }
 
-/** 總噴塗面積 (cm²) = (L×W×A) + (L×H×B) + (W×H×C)。僅適用於「才」計價。 */
+/**
+ * 總噴塗面積 (cm²) = (長×寬×前後面數) + (長×高×左右面數) + (寬×高×上下面數)。
+ * 僅適用於「才」計價。
+ */
 export function computeTotalAreaCm2(dimensions: Dimensions | undefined, faces: FaceCounts): number {
   const length = dimensions?.length ?? 0;
   const width = dimensions?.width ?? 0;
@@ -93,4 +106,64 @@ export function computeChiCount(longestEdgeCm: number): number {
 
 export function buildFormulaCode(faces: FaceCounts): string {
   return `${faces.lwFaces}${faces.lhFaces}${faces.whFaces}`;
+}
+
+/** 由三位數公式代碼（例如 "221"）解析出三個方向的面數，格式不符時回傳 null */
+export function parseFormulaCode(code: string): FaceCounts | null {
+  const trimmed = code.trim();
+  if (!/^\d{3}$/.test(trimmed)) return null;
+  return {
+    lwFaces: Number(trimmed[0]),
+    lhFaces: Number(trimmed[1]),
+    whFaces: Number(trimmed[2]),
+  };
+}
+
+export interface CaiCalculation extends FaceCounts, BillingUnitResult {
+  totalAreaCm2: number;
+  caiCount: number;
+  /** 尺數（單件）。走才計價時為 0，與才數互斥。 */
+  chiCount: number;
+  formulaCode: string;
+}
+
+/**
+ * 快速報價／精算報價共用的入口：一次判定計價單位，並算出面積、才數／尺數與公式代碼。
+ *
+ * 才與尺互斥，回傳值一定只有一邊有數字：
+ * - 走「才」：totalAreaCm2 / caiCount / formulaCode 有值，chiCount 為 0。
+ * - 走「尺」：chiCount 有值，totalAreaCm2 / caiCount 為 0、formulaCode 為空字串
+ *   （尺是長度單位，面數公式與面積完全不適用）。
+ *
+ * 面數缺漏時視為 0（不自行假設面數，避免猜測面積）。
+ */
+export function calculateCai(dimensions: Dimensions | undefined, faces: Partial<FaceCounts>): CaiCalculation {
+  const resolved: FaceCounts = {
+    lwFaces: faces.lwFaces ?? 0,
+    lhFaces: faces.lhFaces ?? 0,
+    whFaces: faces.whFaces ?? 0,
+  };
+  const unit = resolveBillingUnit(dimensions);
+
+  if (unit.billingUnit === 'chi') {
+    return {
+      ...resolved,
+      ...unit,
+      totalAreaCm2: 0,
+      caiCount: 0,
+      chiCount: computeChiCount(unit.longestEdgeCm),
+      formulaCode: '',
+    };
+  }
+
+  const totalAreaCm2 = computeTotalAreaCm2(dimensions, resolved);
+
+  return {
+    ...resolved,
+    ...unit,
+    totalAreaCm2,
+    caiCount: computeCaiCount(totalAreaCm2),
+    chiCount: 0,
+    formulaCode: buildFormulaCode(resolved),
+  };
 }

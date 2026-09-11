@@ -1,11 +1,13 @@
 'use client';
 
 import { useEffect, useState, useCallback } from 'react';
-import { App, Button, Card, Col, Form, Input, Modal, Row, Space, Statistic, Tabs } from 'antd';
+import styled from 'styled-components';
+import { App, Button, Card, Col, Form, Input, Modal, Row, Statistic, Tabs } from 'antd';
 import { Plus, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
+import PageHeader from '@/components/page-header';
 
 const UTILITY_TYPES = [
   { value: 'gas', label: '瓦斯' },
@@ -194,10 +196,7 @@ export default function UtilitiesPage() {
 
   return (
     <section>
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 28, marginBottom: 8 }}>水電瓦斯</h1>
-        <p style={{ color: 'rgba(0,0,0,0.45)' }}>維護瓦斯、水、電的單位牌價，供成本趨勢圖與加工成本參數參考</p>
-      </div>
+      <PageHeader title="水電瓦斯" description="維護瓦斯、水、電的單位牌價，供成本趨勢圖與加工成本參數參考" />
 
       <Tabs
         activeKey={activeType}
@@ -215,9 +214,9 @@ export default function UtilitiesPage() {
           </div>
         ) : (
           <>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 16, flexWrap: 'wrap', gap: 12 }}>
+            <CurrentPriceRow>
               <Statistic title="目前單價" value={current.currentUnitPrice} precision={2} prefix="$" suffix={`/ ${current.unitLabel}`} />
-              <Space>
+              <div className="actions">
                 <Button
                   icon={<Pen size={14} />}
                   onClick={() => {
@@ -237,8 +236,8 @@ export default function UtilitiesPage() {
                 >
                   新增價格版本
                 </Button>
-              </Space>
-            </div>
+              </div>
+            </CurrentPriceRow>
             <Row gutter={[16, 16]}>
               <Col xs={24} lg={12}>
                 <Card variant="borderless" size="small" title="價格趨勢">
@@ -296,3 +295,28 @@ export default function UtilitiesPage() {
     </section>
   );
 }
+
+const CurrentPriceRow = styled.div`
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 16px;
+
+  .actions {
+    display: flex;
+    gap: 8px;
+  }
+
+  /* 手機上兩顆操作鈕各占一半，維持足夠的點按面積 */
+  @media (max-width: 768px) {
+    .actions {
+      width: 100%;
+
+      .ant-btn {
+        flex: 1;
+      }
+    }
+  }
+`;

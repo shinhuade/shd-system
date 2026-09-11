@@ -2,9 +2,12 @@
 
 import { useEffect, useMemo, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Switch, Table, Tabs, Tag } from 'antd';
+import styled from 'styled-components';
+import { App, Button, Card, Form, Input, Modal, Popconfirm, Select, Switch, Tabs, Tag } from 'antd';
 import { Plus, Trash } from '@styled-icons/fa-solid';
 import { PACKAGING_TYPES, PACKAGING_TYPE_LABELS } from '@/models/schemas/packaging';
+import PageHeader from '@/components/page-header';
+import ResponsiveTable from '@/components/responsive-table';
 
 interface PackagingItem {
   _id: string;
@@ -101,26 +104,28 @@ export default function PackagingPage() {
 
   return (
     <section>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 }}>
-        <div>
-          <h1 style={{ fontSize: 28, marginBottom: 8 }}>包材管理</h1>
-          <p style={{ color: 'rgba(0,0,0,0.45)' }}>包材、藥水、紙類分開管理，維護單價所有變動都會保留歷史版本</p>
-        </div>
-        <Button
-          type="primary"
-          icon={<Plus size={14} />}
-          onClick={() => {
-            form.setFieldsValue({ type: activeType === 'all' ? 'packaging' : activeType });
-            setModalOpen(true);
-          }}
-        >
-          新增項目
-        </Button>
-      </div>
+      <PageHeader
+        title="包材藥水成本"
+        description="包材、藥水、紙類分開管理，維護單價所有變動都會保留歷史版本"
+        extra={
+          <Button
+            type="primary"
+            icon={<Plus size={14} />}
+            onClick={() => {
+              form.setFieldsValue({ type: activeType === 'all' ? 'packaging' : activeType });
+              setModalOpen(true);
+            }}
+          >
+            新增項目
+          </Button>
+        }
+      />
 
       <Tabs
         activeKey={activeType}
         onChange={setActiveType}
+        /* 類別較多時可橫向滑動，不會擠成兩行 */
+        tabBarGutter={12}
         items={[
           { key: 'all', label: `全部 (${data.length})` },
           ...PACKAGING_TYPES.map((t) => ({ key: t, label: `${PACKAGING_TYPE_LABELS[t]} (${countByType[t] || 0})` })),
@@ -128,14 +133,18 @@ export default function PackagingPage() {
       />
 
       <Card variant="borderless">
-        <Table
+        <ResponsiveTable<PackagingItem>
           rowKey="_id"
           loading={loading}
           dataSource={filteredData}
           onRow={(record) => ({ onClick: () => router.push(`/admin/packaging/${record._id}`), style: { cursor: 'pointer' } })}
           columns={[
-            { title: '編號', dataIndex: 'packagingCode', key: 'packagingCode' },
-            { title: '名稱', dataIndex: 'name', key: 'name' },
+            { title: '編號', dataIndex: 'packagingCode', key: 'packagingCode', mobileHidden: true },
+            { title: '名稱', dataIndex: 'name', key: 'name', mobilePrimary: true, render: (v: string, r) => (
+                <span>
+                  {v} <MobileOnlyCode>{r.packagingCode}</MobileOnlyCode>
+                </span>
+              ) },
             { title: '類別', dataIndex: 'type', key: 'type', render: (v: string) => <Tag>{PACKAGING_TYPE_LABELS[v as keyof typeof PACKAGING_TYPE_LABELS] || v}</Tag> },
             { title: '目前單價', dataIndex: 'currentUnitPrice', key: 'currentUnitPrice', render: (v: number, r) => `$${v?.toLocaleString() ?? 0} / ${r.unit}` },
             { title: '狀態', dataIndex: 'isActive', key: 'isActive', render: (v: boolean) => <Tag color={v ? 'green' : 'default'}>{v ? '啟用中' : '停用'}</Tag> },
@@ -188,3 +197,15 @@ export default function PackagingPage() {
     </section>
   );
 }
+
+/** 手機版卡片標題同時顯示編號（桌機表格已有獨立欄位） */
+const MobileOnlyCode = styled.span`
+  display: none;
+  color: rgba(0, 0, 0, 0.45);
+  font-size: 13px;
+  font-weight: 400;
+
+  @media (max-width: 768px) {
+    display: inline;
+  }
+`;

@@ -15,6 +15,8 @@ const CostParamsSnapshotSchema = z.object({
 const CostBreakdownSchema = z.object({
   materialCost: z.number().default(0),
   laborCost: z.number().default(0),
+  /** 精算報價的能源成本（電費＋瓦斯＋水費合併），一般報價精靈為 0 */
+  energyCost: z.number().default(0),
   gasCost: z.number().default(0),
   electricityCost: z.number().default(0),
   waterCost: z.number().default(0),
@@ -27,9 +29,34 @@ const CostBreakdownSchema = z.object({
   totalCost: z.number().default(0),
 });
 
+/**
+ * 精算報價的成本模型快照。歷史報價不可因為之後成本資料更新而改變，
+ * 因此把當時的每才成本、粉體單價、係數全部凍結寫入這裡。
+ */
+const CostModelSnapshotSchema = z.object({
+  periodMonth: z.string(),
+  producedCai: z.number().default(0),
+  workingDays: z.number().default(0),
+  baseCostTotal: z.number().default(0),
+  baseCostPerCai: z.number().default(0),
+  laborPerCai: z.number().default(0),
+  energyPerCai: z.number().default(0),
+  fixedPerCai: z.number().default(0),
+  powderDensityGPerCm3: z.number().default(0),
+  transferEfficiencyPercent: z.number().default(0),
+  powderUsageKg: z.number().default(0),
+  costPerCai: z.number().default(0),
+  targetMarginRatePercent: z.number().default(0),
+});
+
+export const QUOTE_MODES = ['wizard', 'quick', 'precision'] as const;
+
 export const QuotationItemSchema = z
   .object({
     quotationId: z.string({ message: '報價單必填' }),
+    /** wizard：舊版報價精靈；precision：精算報價 */
+    quoteMode: z.enum(QUOTE_MODES).default('wizard'),
+    costModelSnapshot: CostModelSnapshotSchema.optional(),
     workpieceName: z.string({ message: '工件名稱必填' }).trim().min(1),
     workpieceCode: z.string().trim().optional(),
     dimensions: z
