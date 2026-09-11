@@ -1,8 +1,14 @@
 'use client';
 
-import { Card, Col, Form, InputNumber, Row, Tag } from 'antd';
+import { Alert, Card, Col, Form, InputNumber, Row, Tag } from 'antd';
 import styled from 'styled-components';
-import { calculateCai, FaceCounts } from '@/lib/pricing/area-formula';
+import {
+  calculateCai,
+  FaceCounts,
+  CHI_WIDTH_THRESHOLD_CM,
+  CM_PER_CHI,
+  CM2_PER_CAI,
+} from '@/lib/pricing/area-formula';
 
 export interface FormulaTemplate {
   _id: string;
@@ -53,6 +59,8 @@ export default function DimensionFaceFields({
   onSelectTemplate: (templateId: string) => void;
 }) {
   const cai = calculateCai(dimensions, faces);
+  // 才與尺互斥：細長件走尺計價時，面數公式與面積完全不適用（見 area-formula）
+  const isChi = cai.billingUnit === 'chi';
 
   return (
     <>
@@ -98,6 +106,14 @@ export default function DimensionFaceFields({
       </Card>
 
       <Card size="small" title="面數公式" variant="borderless" style={{ marginBottom: 12 }}>
+        {isChi && (
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={`這件工件以「尺」計價，面數公式與噴塗面積不適用，以下欄位不影響計算`}
+          />
+        )}
         <FormulaGrid>
           {templates.map((template) => (
             <button
@@ -145,18 +161,41 @@ export default function DimensionFaceFields({
 
       <CaiCard>
         <div className="row">
-          <span className="label">公式</span>
-          <Tag color="blue">{cai.formulaCode}</Tag>
+          <span className="label">計價單位</span>
+          <Tag color={isChi ? 'orange' : 'blue'}>{isChi ? '尺（長度）' : '才（面積）'}</Tag>
         </div>
-        <div className="row">
-          <span className="label">總面積</span>
-          <span>{cai.totalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²</span>
-        </div>
-        <div className="row highlight">
-          <span className="label">計算才數</span>
-          <strong>{cai.caiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 才</strong>
-        </div>
-        <p className="hint">1 才 = 900 cm²（本廠的「才」已是雙面才，不再另外 ×2）</p>
+        {isChi ? (
+          <>
+            <div className="row">
+              <span className="label">最長邊</span>
+              <span>{cai.longestEdgeCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm</span>
+            </div>
+            <div className="row highlight">
+              <span className="label">計算尺數</span>
+              <strong>{cai.chiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 尺</strong>
+            </div>
+            <p className="hint">
+              寬度 {cai.billingWidthCm.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm 小於{' '}
+              {CHI_WIDTH_THRESHOLD_CM} cm，屬細長件，一律以尺計價（1 尺 = {CM_PER_CHI} cm）
+            </p>
+          </>
+        ) : (
+          <>
+            <div className="row">
+              <span className="label">公式</span>
+              <Tag color="blue">{cai.formulaCode}</Tag>
+            </div>
+            <div className="row">
+              <span className="label">總面積</span>
+              <span>{cai.totalAreaCm2.toLocaleString(undefined, { maximumFractionDigits: 1 })} cm²</span>
+            </div>
+            <div className="row highlight">
+              <span className="label">計算才數</span>
+              <strong>{cai.caiCount.toLocaleString(undefined, { maximumFractionDigits: 2 })} 才</strong>
+            </div>
+            <p className="hint">1 才 = {CM2_PER_CAI} cm²（本廠的「才」已是雙面才，不再另外 ×2）</p>
+          </>
+        )}
       </CaiCard>
     </>
   );

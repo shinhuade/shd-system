@@ -93,6 +93,7 @@ const QuotationItemSchema: Schema = new Schema(
     packagingId: { type: Schema.Types.ObjectId, ref: 'PackagingItem' },
     packagingQuantity: { type: Number },
 
+    billingUnit: { type: String, enum: ['cai', 'chi'], default: 'cai' },
     workpieceFormulaTemplateId: { type: Schema.Types.ObjectId, ref: 'WorkpieceFormulaTemplate' },
     formulaCode: { type: String },
     lwFaces: { type: Number, default: 0 },
@@ -100,6 +101,8 @@ const QuotationItemSchema: Schema = new Schema(
     whFaces: { type: Number, default: 0 },
     totalAreaCm2: { type: Number, default: 0 },
     caiCount: { type: Number, default: 0 },
+    chiCount: { type: Number, default: 0 },
+    billingUnitPrice: { type: Number },
 
     hangCount: { type: Number, default: 0 },
     ovenCapacityPerBatch: { type: Number, default: 0 },

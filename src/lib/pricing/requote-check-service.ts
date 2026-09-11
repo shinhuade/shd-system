@@ -76,8 +76,12 @@ async function checkPrecisionItemRequote(item: QuotationItemLike): Promise<Requo
     totalCost: result.total.totalCost,
     materialUsageKg: result.powderUsageKg,
     processingHours: 0,
+    billingUnit: result.billingUnit,
+    billingWidthCm: result.billingWidthCm,
+    longestEdgeCm: result.longestEdgeCm,
     totalAreaCm2: result.totalAreaCm2,
     caiCount: result.caiCount,
+    chiCount: result.chiCount,
     formulaCode: result.formulaCode,
   };
 

@@ -36,6 +36,8 @@ export function toPricingConfigSnapshot(settings: ISystemSettings): PricingConfi
     transferEfficiencyPercent: settings.transferEfficiencyPercent,
     standardMonthlyOperatingHours: settings.standardMonthlyOperatingHours,
     standardCycleHoursPerBatch: settings.standardCycleHoursPerBatch,
+    hookSlotLengthCm: settings.hookSlotLengthCm,
+    hooksPerRack: settings.hooksPerRack,
   };
 }
 

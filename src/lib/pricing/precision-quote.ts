@@ -67,7 +67,23 @@ export interface PrecisionQuoteResult extends CaiCalculation {
   marginRatePercent: number;
   /** 使用的成本模型月份，寫進歷史報價快照 */
   costModelPeriodMonth: string;
+  /**
+   * 無法精算時的原因，可精算時為 undefined。
+   * 目前唯一的情況是工件以「尺」計價：成本模型是以「每才成本」為基礎
+   * （每月成本 ÷ 當月生產才數），細長件沒有才數也沒有噴塗面積，
+   * 無法換算成本，因此不輸出任何金額，改請使用者走快速報價自行填每尺單價。
+   */
+  unavailableReason?: string;
 }
+
+const EMPTY_COST: PrecisionCostBreakdown = {
+  powderCost: 0,
+  powderLossCost: 0,
+  laborCost: 0,
+  energyCost: 0,
+  fixedCost: 0,
+  totalCost: 0,
+};
 
 /** 粉體理論用量 (kg) = 面積(m²) × 膜厚(μm) × 密度(g/cm³) ÷ 利用率 ÷ 1000 */
 export function computePowderUsageKg(
@@ -96,6 +112,31 @@ export function buildPrecisionQuote(
   const cai = calculateCai(input.dimensions, input.faces);
   const quantity = input.quantity && input.quantity > 0 ? input.quantity : 1;
   const filmThicknessUm = input.filmThicknessUm || 0;
+
+  // 走「尺」的細長件沒有才數可套用每才成本模型，寧可不出數字也不輸出 0 元報價
+  if (cai.billingUnit === 'chi') {
+    return {
+      ...cai,
+      quantity,
+      filmThicknessUm,
+      totalCaiCount: 0,
+      powderUsageKgPerPiece: 0,
+      powderUsageKg: 0,
+      perPiece: { ...EMPTY_COST },
+      total: { ...EMPTY_COST },
+      costPerCai: 0,
+      targetMarginRatePercent: input.targetMarginRatePercent,
+      suggestedUnitPrice: 0,
+      suggestedPrice: 0,
+      suggestedPricePerCai: 0,
+      marginAmount: 0,
+      marginRatePercent: 0,
+      costModelPeriodMonth: costModel.periodMonth,
+      unavailableReason:
+        '這是以「尺」計價的細長件，成本模型以每才成本為基礎，無法換算每尺成本，' +
+        '請改用「快速報價」自行填入每尺單價。',
+    };
+  }
 
   const powderUsageKgPerPiece = computePowderUsageKg(cai.totalAreaCm2, filmThicknessUm, powder);
   const powderCostPerPiece = powderUsageKgPerPiece * powder.pricePerKg;

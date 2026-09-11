@@ -178,6 +178,10 @@ export default function PrecisionQuotePanel() {
 
   const onSave = async () => {
     if (!result || !materialId) return;
+    if (result.unavailableReason) {
+      message.error(result.unavailableReason);
+      return;
+    }
     if (!customerId) {
       message.error('請選擇客戶');
       return;
@@ -368,7 +372,22 @@ export default function PrecisionQuotePanel() {
                 </div>
               )}
 
-              {result && costModel && (
+              {/* 走「尺」的細長件無法套用每才成本模型，只說明原因並導去快速報價，不輸出 $0 */}
+              {result?.unavailableReason && (
+                <Alert
+                  type="warning"
+                  showIcon
+                  message="這件工件無法精算"
+                  description={result.unavailableReason}
+                  action={
+                    <Button size="small" onClick={() => router.push('/admin/quotes/new/quick')}>
+                      改用快速報價
+                    </Button>
+                  }
+                />
+              )}
+
+              {result && costModel && !result.unavailableReason && (
                 <>
                   <SummaryList>
                     <div className="row">

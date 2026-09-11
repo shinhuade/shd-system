@@ -1,11 +1,12 @@
 'use client';
 
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import styled from 'styled-components';
-import { Alert, App, Button, Card, Form, InputNumber, Segmented } from 'antd';
+import { Alert, App, Button, Card, Form, InputNumber, Tag } from 'antd';
 import { ArrowLeft, Copy } from '@styled-icons/fa-solid';
-import { computeQuickQuote, QuickQuoteUnitMode } from '@/lib/pricing/quick-quote';
+import { computeQuickQuote } from '@/lib/pricing/quick-quote';
+import { CHI_WIDTH_THRESHOLD_CM, CM_PER_CHI, CM2_PER_CAI } from '@/lib/pricing/area-formula';
 import PageHeader from '@/components/page-header';
 import DimensionFaceFields from './dimension-face-fields';
 import { useCaiInput } from './use-cai-input';
@@ -14,57 +15,35 @@ const formatMoney = (value: number) => `$${Math.round(value).toLocaleString()}`;
 const formatCai = (value: number) => value.toLocaleString(undefined, { maximumFractionDigits: 2 });
 
 /**
- * ⚡ 快速報價：尺寸 → 面數 → 才數 → 單價 → 報價，全部在同一頁完成，
+ * ⚡ 快速報價：尺寸 → 面數 → 才數／尺數 → 單價 → 報價，全部在同一頁完成，
  * 不需要任何成本資料，適合電話／LINE／現場詢價。
+ *
+ * 計價單位（才／尺）依本廠規則從尺寸自動判定，不讓使用者選，
+ * 避免同一件工件被用兩種單位報出兩個價。
  */
 export default function QuickQuotePanel() {
   const router = useRouter();
   const { message } = App.useApp();
   const cai = useCaiInput();
-  const [unitMode, setUnitMode] = useState<QuickQuoteUnitMode>('per_cai');
   const [unitPrice, setUnitPrice] = useState<number>();
-  const [caiPerFoot, setCaiPerFoot] = useState<number | null>(null);
-
-  useEffect(() => {
-    let mounted = true;
-
-    const load = async () => {
-      try {
-        const res = await fetch('/api/admin/system-settings/current');
-        const result = await res.json();
-        if (!mounted) return;
-        setCaiPerFoot(result?.data?.caiPerFoot ?? null);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-
-    load();
-
-    return () => {
-      mounted = false;
-    };
-  }, []);
 
   const quote = computeQuickQuote({
     dimensions: cai.dimensions,
     faces: cai.faces,
-    unitMode,
     unitPrice: unitPrice ?? 0,
-    caiPerFoot,
   });
 
-  const canQuote = quote.caiCount > 0 && (unitPrice ?? 0) > 0 && !quote.unavailableReason;
+  const isChi = quote.billingUnit === 'chi';
+  const unitLabel = isChi ? '尺' : '才';
+  const canQuote = quote.billingQuantityPerUnit > 0 && (unitPrice ?? 0) > 0 && !quote.unavailableReason;
 
   const onCopy = async () => {
     const { length, width, height } = cai.dimensions;
     const lines = [
       `工件尺寸：${length ?? 0} × ${width ?? 0} × ${height ?? 0} cm`,
-      `面數公式：${quote.formulaCode}`,
-      `計算才數：${formatCai(quote.caiCount)} 才`,
-      unitMode === 'per_cai'
-        ? `單價：${formatMoney(unitPrice ?? 0)} / 才`
-        : `單價：${formatMoney(unitPrice ?? 0)} / 尺（${formatCai(quote.footCount ?? 0)} 尺）`,
+      ...(isChi ? [] : [`面數公式：${quote.formulaCode}`]),
+      `計算${unitLabel}數：${formatCai(quote.billingQuantityPerUnit)} ${unitLabel}`,
+      `單價：${formatMoney(unitPrice ?? 0)} / ${unitLabel}`,
       `報價：${formatMoney(quote.quotedAmount)}`,
     ];
 
@@ -87,7 +66,7 @@ export default function QuickQuotePanel() {
         返回智慧報價
       </Button>
 
-      <PageHeader title="⚡ 快速報價" description="輸入尺寸與面數算出才數，填入單價立刻得到報價" />
+      <PageHeader title="⚡ 快速報價" description="輸入尺寸與面數算出才數／尺數，填入單價立刻得到報價" />
 
       <Form layout="vertical">
         <DimensionFaceFields
@@ -100,18 +79,30 @@ export default function QuickQuotePanel() {
           onSelectTemplate={cai.selectTemplate}
         />
 
-        <Card size="small" title="單價" variant="borderless" style={{ marginTop: 12 }}>
-          <Segmented
-            block
-            size="large"
-            value={unitMode}
-            onChange={(v) => setUnitMode(v as QuickQuoteUnitMode)}
-            options={[
-              { label: '一才單價', value: 'per_cai' },
-              { label: '一尺單價', value: 'per_foot' },
-            ]}
+        <Card
+          size="small"
+          variant="borderless"
+          style={{ marginTop: 12 }}
+          title={
+            <span>
+              單價{' '}
+              <Tag color={isChi ? 'orange' : 'blue'} style={{ marginInlineStart: 4 }}>
+                以「{unitLabel}」計價
+              </Tag>
+            </span>
+          }
+        >
+          <Alert
+            type="info"
+            showIcon
+            style={{ marginBottom: 12 }}
+            message={
+              isChi
+                ? `寬度 ${formatCai(quote.billingWidthCm)} cm 小於 ${CHI_WIDTH_THRESHOLD_CM} cm，屬細長件，依本廠規則以「尺」計價（尺數 = 最長邊 ÷ ${CM_PER_CHI} cm）`
+                : `依本廠規則以「才」計價（才數 = 噴塗面積 ÷ ${CM2_PER_CAI} cm²）`
+            }
           />
-          <Form.Item label={unitMode === 'per_cai' ? '單價（元／才）' : '單價（元／尺）'} style={{ marginTop: 12, marginBottom: 0 }}>
+          <Form.Item label={`單價（元／${unitLabel}）`} style={{ marginBottom: 0 }}>
             <InputNumber
               size="large"
               inputMode="decimal"
@@ -123,39 +114,31 @@ export default function QuickQuotePanel() {
             />
           </Form.Item>
 
-          {unitMode === 'per_foot' && quote.unavailableReason && (
-            <Alert
-              type="warning"
-              showIcon
-              style={{ marginTop: 12 }}
-              message={quote.unavailableReason}
-              action={
-                <Button size="small" onClick={() => router.push('/admin/system-settings')}>
-                  前往設定
-                </Button>
-              }
-            />
+          {quote.unavailableReason && (
+            <Alert type="warning" showIcon style={{ marginTop: 12 }} message={quote.unavailableReason} />
           )}
         </Card>
       </Form>
 
       <ResultCard>
         <div className="line">
-          <span>📐 計算才數</span>
-          <strong>{formatCai(quote.caiCount)} 才</strong>
+          <span>📐 計算{unitLabel}數</span>
+          <strong>
+            {formatCai(quote.billingQuantityPerUnit)} {unitLabel}
+          </strong>
         </div>
+        {isChi && (
+          <div className="line sub">
+            <span>最長邊</span>
+            <span>{formatCai(quote.longestEdgeCm)} cm</span>
+          </div>
+        )}
         <div className="line">
           <span>💵 單價</span>
           <strong>
-            {formatMoney(unitPrice ?? 0)} / {unitMode === 'per_cai' ? '才' : '尺'}
+            {formatMoney(unitPrice ?? 0)} / {unitLabel}
           </strong>
         </div>
-        {unitMode === 'per_foot' && !quote.unavailableReason && (
-          <div className="line sub">
-            <span>換算尺數</span>
-            <span>{formatCai(quote.footCount ?? 0)} 尺</span>
-          </div>
-        )}
         <div className="total">
           <span>💰 報價</span>
           <strong>{formatMoney(quote.quotedAmount)}</strong>

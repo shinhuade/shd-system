@@ -12,11 +12,12 @@ export const SystemSettingsSchema = z
     standardMonthlyOperatingHours: z.number({ message: '每月標準工時必填' }).min(0),
     standardCycleHoursPerBatch: z.number({ message: '每批次標準加工工時必填' }).min(0),
     /**
-     * 尺才換算：1 尺 = 幾才。系統原本沒有定義「尺」與「才」的換算方式，
-     * 這裡刻意不給預設值也不做任何猜測——未填寫時快速報價的「一尺單價」不會計算，
-     * 由工廠填入自己的換算基準後才啟用。
+     * 產線吊掛參數（選填）。工件愈長就佔掉愈多掛勾位，產線利用率隨之下降，
+     * 這兩個值讓報價精靈能依工件長度自動建議「每盤可掛件數」。
+     * 兩者任一未設定就不做自動建議，改由使用者自行填寫，不臆測數字。
      */
-    caiPerFoot: z.number().min(0).nullable().optional(),
+    hookSlotLengthCm: z.number().min(0).optional(),
+    hooksPerRack: z.number().min(0).optional(),
     effectiveDate: z.coerce.date({ message: '生效日期必填' }),
     note: z.string().optional(),
     createdBy: z.string().optional(),

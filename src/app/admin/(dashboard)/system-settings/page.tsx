@@ -15,13 +15,16 @@ const FIELDS: { name: string; label: string; suffix?: string; max?: number; opti
   { name: 'transferEfficiencyPercent', label: '噴塗轉移率', suffix: '%', max: 100 },
   { name: 'standardMonthlyOperatingHours', label: '每月標準工時', suffix: '小時' },
   { name: 'standardCycleHoursPerBatch', label: '每批次標準加工工時', suffix: '小時' },
+  // 產線吊掛：長件橫掛會佔掉多個掛勾位，這兩個值讓精算報價能依長度自動建議掛件數。
+  // 選填，兩者任一沒填就不做自動建議，掛件數改由使用者自行輸入。
   {
-    name: 'caiPerFoot',
-    label: '尺才換算（1 尺 = 幾才）',
-    suffix: '才',
+    name: 'hookSlotLengthCm',
+    label: '每掛勾位可容納長度',
+    suffix: 'cm',
     optional: true,
-    hint: '未填寫時，快速報價的「一尺單價」不會計算。系統不會自行猜測換算基準。',
+    hint: '與「每支吊盤掛勾數」兩者都填寫後，才會依工件長度自動建議掛件數。',
   },
+  { name: 'hooksPerRack', label: '每支吊盤掛勾數', suffix: '勾', optional: true },
 ];
 
 interface SystemSettings {
@@ -167,7 +170,7 @@ export default function SystemSettingsPage() {
               title: f.label,
               dataIndex: f.name,
               key: f.name,
-              render: (v: number) => `${v ?? 0}${f.suffix || ''}`,
+              render: (v: number) => (v == null ? (f.optional ? '-' : '0') : `${v}${f.suffix || ''}`),
             })),
             { title: '備註', dataIndex: 'note', key: 'note', ellipsis: true },
           ]}

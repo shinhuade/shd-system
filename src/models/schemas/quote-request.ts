@@ -34,6 +34,8 @@ export const WorkpieceCalcInputSchema = z
     outsourcingCost: z.number().min(0).optional(),
     wastageCost: z.number().min(0).optional(),
     packagingQuantity: z.number().min(0).optional(),
+    /** 單價法報價用的每才／每尺單價 ($)，選填 */
+    billingUnitPrice: z.number().min(0).optional(),
   })
   .strict();
 
