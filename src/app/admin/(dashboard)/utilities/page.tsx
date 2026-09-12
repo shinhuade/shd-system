@@ -2,18 +2,31 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
-import { App, Button, Card, Col, Form, Input, Modal, Row, Statistic, Tabs } from 'antd';
+import { Alert, App, Button, Card, Col, Form, Input, Modal, Row, Statistic, Tabs } from 'antd';
 import { Plus, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
 import PageHeader from '@/components/page-header';
+import {
+  ACTIVE_UTILITY_TYPES,
+  UTILITY_TYPE_LABELS,
+  UTILITY_TYPE_DEFAULT_UNITS,
+  UtilityType,
+} from '@/models/schemas/utility-rate';
 
-const UTILITY_TYPES = [
-  { value: 'gas', label: '瓦斯' },
-  { value: 'water', label: '水費' },
-  { value: 'electricity', label: '電費' },
-];
+/**
+ * 分頁一律由 schema 的項目清單產生，新增項目時不需要動這一頁。
+ * 舊的 'gas' 不在可新增清單裡，但若資料庫仍有該筆資料就補一個分頁讓它讀得到。
+ */
+const ACTIVE_TABS = ACTIVE_UTILITY_TYPES.map((value) => ({ value: value as string, label: UTILITY_TYPE_LABELS[value] }));
+
+/** 各項目底下的補充說明，講清楚這個單價會被怎麼用 */
+const TYPE_HINTS: Partial<Record<string, string>> = {
+  gas_natural: '按立方公尺計價。當月瓦斯費 = 供氣量 × 單價 × (平均熱值 ÷ 8900 基準熱值)，供氣量與平均熱值請填在「成本管理 → 每月生產紀錄」。',
+  gas_bottled: '按公斤計價，沒有熱值調整。當月瓦斯費 = 用量(kg) × 單價。用量請填在「成本管理 → 每月生產紀錄」。',
+  gas: '這是拆分成天然氣／桶裝瓦斯之前的舊項目，僅供查閱歷史牌價，不建議再新增價格版本。',
+};
 
 interface UtilityRate {
   _id: string;
@@ -25,7 +38,7 @@ interface UtilityRate {
 export default function UtilitiesPage() {
   const { message } = App.useApp();
   const [rates, setRates] = useState<UtilityRate[]>([]);
-  const [activeType, setActiveType] = useState('gas');
+  const [activeType, setActiveType] = useState<string>('gas_natural');
   const [history, setHistory] = useState<PriceHistoryRow[]>([]);
   const [loading, setLoading] = useState(true);
   const [historyLoading, setHistoryLoading] = useState(false);
@@ -201,13 +214,30 @@ export default function UtilitiesPage() {
       <Tabs
         activeKey={activeType}
         onChange={setActiveType}
-        items={UTILITY_TYPES.map((t) => ({ key: t.value, label: t.label }))}
+        items={[
+          ...ACTIVE_TABS,
+          // 舊的瓦斯項目只有在資料庫裡真的還有資料時才出現，避免佔著一個空分頁
+          ...(rates.some((rate) => rate.type === 'gas')
+            ? [{ value: 'gas', label: UTILITY_TYPE_LABELS.gas }]
+            : []),
+        ].map((t) => ({ key: t.value, label: t.label }))}
       />
+
+      {TYPE_HINTS[activeType] && (
+        <Alert
+          type={activeType === 'gas' ? 'warning' : 'info'}
+          showIcon
+          style={{ marginBottom: 16 }}
+          message={TYPE_HINTS[activeType]}
+        />
+      )}
 
       <Card variant="borderless" loading={loading}>
         {!current ? (
           <div style={{ textAlign: 'center', padding: '32px 0' }}>
-            <p style={{ marginBottom: 16, color: 'rgba(0,0,0,0.45)' }}>尚未建立「{UTILITY_TYPES.find((t) => t.value === activeType)?.label}」的牌價資料</p>
+            <p style={{ marginBottom: 16, color: 'rgba(0,0,0,0.45)' }}>
+              尚未建立「{UTILITY_TYPE_LABELS[activeType as UtilityType] ?? activeType}」的牌價資料
+            </p>
             <Button type="primary" icon={<Plus size={14} />} onClick={() => setCreateModalOpen(true)}>
               建立
             </Button>
@@ -264,10 +294,20 @@ export default function UtilitiesPage() {
         )}
       </Card>
 
-      <Modal open={createModalOpen} title="建立牌價項目" onCancel={() => setCreateModalOpen(false)} onOk={onCreateBase} confirmLoading={submitting}>
+      <Modal
+        open={createModalOpen}
+        title={`建立「${UTILITY_TYPE_LABELS[activeType as UtilityType] ?? activeType}」牌價項目`}
+        onCancel={() => setCreateModalOpen(false)}
+        onOk={onCreateBase}
+        confirmLoading={submitting}
+        afterOpenChange={(open) => {
+          // 預帶該項目的慣用單位（天然氣 m³、桶裝 kg），仍可自行修改
+          if (open) createForm.setFieldsValue({ unitLabel: UTILITY_TYPE_DEFAULT_UNITS[activeType as UtilityType] ?? '' });
+        }}
+      >
         <Form form={createForm} layout="vertical">
           <Form.Item name="unitLabel" label="計價單位" rules={[{ required: true, message: '請輸入計價單位，例如：度、噸' }]}>
-            <Input placeholder="例如：度、噸、kg" />
+            <Input placeholder="例如：元/m³、元/kg、度" />
           </Form.Item>
         </Form>
       </Modal>

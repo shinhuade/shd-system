@@ -8,13 +8,18 @@ import { z } from 'zod';
  * - 其餘類別都是工廠每個月實際發生的基本成本，會被分攤到當月生產才數上。
  * - 除了這裡列出的已知類別外，`category` 允許自訂鍵值（例如 custom_xxx），
  *   自訂類別一律歸類到「固定成本」群組，金額同樣參與每才基本成本的計算。
+ *
+ * 瓦斯分成「天然氣」與「桶裝瓦斯」兩個類別：計價方式不同（前者按 m³ 並依當月熱值調整、
+ * 後者按 kg），分開記錄才能各自對帳，也才能看出哪一種在漲。舊的 'gas' 類別仍可讀取，
+ * 顯示為「瓦斯（舊）」，不再提供新增。
  */
 export const COST_RECORD_CATEGORIES = [
   'material',
   'packaging',
   'labor',
   'electricity',
-  'gas',
+  'gas_natural',
+  'gas_bottled',
   'water',
   'rent',
   'security',
@@ -29,7 +34,8 @@ export const COST_RECORD_CATEGORY_LABELS: Record<KnownCostCategory, string> = {
   packaging: '包材成本',
   labor: '人事',
   electricity: '電費',
-  gas: '瓦斯',
+  gas_natural: '天然氣',
+  gas_bottled: '桶裝瓦斯',
   water: '水費',
   rent: '租金',
   security: '保全',
@@ -45,7 +51,8 @@ export const COST_CATEGORY_GROUPS: Record<KnownCostCategory, CostCategoryGroup> 
   packaging: 'direct',
   labor: 'labor',
   electricity: 'energy',
-  gas: 'energy',
+  gas_natural: 'energy',
+  gas_bottled: 'energy',
   water: 'energy',
   rent: 'fixed',
   security: 'fixed',
@@ -60,13 +67,28 @@ export const COST_GROUP_LABELS: Record<CostCategoryGroup, string> = {
   fixed: '固定成本',
 };
 
-/** 自訂類別（不在已知清單中）一律視為固定成本 */
+/**
+ * 已停用但仍需讀得懂的舊類別。拆分前所有瓦斯都記在 'gas' 底下，
+ * 既有月份的資料必須照舊歸入能源成本，否則歷史成本模型會算錯。
+ */
+export const LEGACY_COST_CATEGORIES: Record<string, { label: string; group: CostCategoryGroup }> = {
+  gas: { label: '瓦斯（舊）', group: 'energy' },
+};
+
+/** 自訂類別（不在已知或舊類別清單中）一律視為固定成本 */
 export function resolveCostCategoryGroup(category: string): CostCategoryGroup {
-  return COST_CATEGORY_GROUPS[category as KnownCostCategory] ?? 'fixed';
+  return (
+    COST_CATEGORY_GROUPS[category as KnownCostCategory] ?? LEGACY_COST_CATEGORIES[category]?.group ?? 'fixed'
+  );
 }
 
 export function resolveCostCategoryLabel(category: string, label?: string): string {
-  return label || COST_RECORD_CATEGORY_LABELS[category as KnownCostCategory] || category;
+  return (
+    label ||
+    COST_RECORD_CATEGORY_LABELS[category as KnownCostCategory] ||
+    LEGACY_COST_CATEGORIES[category]?.label ||
+    category
+  );
 }
 
 /** 自訂類別的鍵值格式：英數與底線，前綴 custom_ 由前端產生 */

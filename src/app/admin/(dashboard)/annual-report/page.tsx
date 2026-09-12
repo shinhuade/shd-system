@@ -7,7 +7,9 @@ import PageHeader from '@/components/page-header';
 const METRICS = [
   { key: 'material_cost', label: '粉料成本' },
   { key: 'packaging_cost', label: '包材成本' },
-  { key: 'gas', label: '瓦斯成本' },
+  { key: 'gas', label: '瓦斯成本（合計）' },
+  { key: 'gas_natural', label: '天然氣' },
+  { key: 'gas_bottled', label: '桶裝瓦斯' },
   { key: 'water', label: '水費' },
   { key: 'electricity', label: '電費' },
   { key: 'labor', label: '人工成本' },

@@ -6,6 +6,7 @@ import { Plus, Trash } from '@styled-icons/fa-solid';
 import dayjs, { Dayjs } from 'dayjs';
 import ResponsiveTable from '@/components/responsive-table';
 import { computeAvgCaiPerDay, ProductionMetricInput } from '@/models/schemas/production-record';
+import { NATURAL_GAS_BASE_HEATING_VALUE } from '@/lib/pricing/gas-cost';
 
 interface ProductionRecordRow {
   _id?: string;
@@ -14,6 +15,10 @@ interface ProductionRecordRow {
   producedCai: number;
   avgFilmThicknessUm?: number;
   powderUsageKg?: number;
+  naturalGasUsageM3?: number;
+  naturalGasAvgHeatingValue?: number;
+  bottledGasUsageKg?: number;
+  /** 拆分前的舊欄位，僅既有資料會有值 */
   gasUsage?: number;
   electricityUsageKwh?: number;
   waterUsage?: number;
@@ -21,12 +26,25 @@ interface ProductionRecordRow {
   note?: string;
 }
 
-const NUMBER_FIELDS: { name: keyof ProductionRecordRow; label: string; suffix?: string; required?: boolean }[] = [
+const NUMBER_FIELDS: {
+  name: keyof ProductionRecordRow;
+  label: string;
+  suffix?: string;
+  required?: boolean;
+  hint?: string;
+}[] = [
   { name: 'workingDays', label: '工作天數', suffix: '天', required: true },
   { name: 'producedCai', label: '實際生產才數', suffix: '才', required: true },
   { name: 'avgFilmThicknessUm', label: '平均膜厚', suffix: 'μm' },
   { name: 'powderUsageKg', label: '噴粉量', suffix: 'kg' },
-  { name: 'gasUsage', label: '瓦斯用量' },
+  { name: 'naturalGasUsageM3', label: '天然氣供氣量', suffix: 'm³', hint: '抄自當月瓦斯帳單' },
+  {
+    name: 'naturalGasAvgHeatingValue',
+    label: '天然氣平均熱值',
+    suffix: 'kcal/m³',
+    hint: `抄自當月帳單，基準熱值為 ${NATURAL_GAS_BASE_HEATING_VALUE}。未填就不做熱值調整。`,
+  },
+  { name: 'bottledGasUsageKg', label: '桶裝瓦斯用量', suffix: 'kg', hint: '按重量計價，無熱值調整' },
   { name: 'electricityUsageKwh', label: '用電量', suffix: 'kWh' },
   { name: 'waterUsage', label: '用水量' },
 ];
@@ -116,7 +134,9 @@ export default function ProductionRecordForm() {
           producedCai: record.producedCai || 0,
           avgFilmThicknessUm: record.avgFilmThicknessUm,
           powderUsageKg: record.powderUsageKg,
-          gasUsage: record.gasUsage,
+          naturalGasUsageM3: record.naturalGasUsageM3,
+          naturalGasAvgHeatingValue: record.naturalGasAvgHeatingValue,
+          bottledGasUsageKg: record.bottledGasUsageKg,
           electricityUsageKwh: record.electricityUsageKwh,
           waterUsage: record.waterUsage,
           extraMetrics: record.extraMetrics || [],
@@ -161,6 +181,9 @@ export default function ProductionRecordForm() {
                 value={(record[field.name] as number | undefined) ?? undefined}
                 onChange={(v) => setRecord((prev) => ({ ...prev, [field.name]: v ?? undefined }))}
               />
+              {field.hint && (
+                <div style={{ marginTop: 4, fontSize: 12, color: 'rgba(0,0,0,0.45)', lineHeight: 1.5 }}>{field.hint}</div>
+              )}
             </Col>
           ))}
 

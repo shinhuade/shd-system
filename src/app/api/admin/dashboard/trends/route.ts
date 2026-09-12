@@ -9,14 +9,21 @@ import { COST_RECORD_CATEGORIES } from '@/models/schemas/cost-record';
 type Range = 'month' | 'quarter' | 'year';
 type CostRecordCategory = (typeof COST_RECORD_CATEGORIES)[number];
 
-const COST_RECORD_METRIC_CATEGORY: Record<string, CostRecordCategory> = {
-  material_cost: 'material',
-  packaging_cost: 'packaging',
-  gas: 'gas',
-  water: 'water',
-  electricity: 'electricity',
-  labor: 'labor',
-  fixed_cost: 'fixed_other',
+/**
+ * 每個趨勢指標對應到的成本類別。用陣列而非單一類別，因為有些指標是多個類別的合計：
+ * 「瓦斯成本」要把天然氣、桶裝瓦斯，以及拆分前記在 'gas' 底下的舊資料一起加總，
+ * 否則跨越拆分時間點的趨勢圖會在中間斷掉。想個別看時另有 gas_natural／gas_bottled。
+ */
+const COST_RECORD_METRIC_CATEGORY: Record<string, (CostRecordCategory | 'gas')[]> = {
+  material_cost: ['material'],
+  packaging_cost: ['packaging'],
+  gas: ['gas_natural', 'gas_bottled', 'gas'],
+  gas_natural: ['gas_natural'],
+  gas_bottled: ['gas_bottled'],
+  water: ['water'],
+  electricity: ['electricity'],
+  labor: ['labor'],
+  fixed_cost: ['fixed_other'],
 };
 
 /** 把 YYYY-MM 期間字串依 range 重新分桶（月不變、季合併為 YYYY-Qn、年合併為 YYYY） */
@@ -30,8 +37,8 @@ function bucketPeriod(periodMonth: string, range: Range): string {
   return `${year}-Q${quarter}`;
 }
 
-async function getCostRecordTrend(category: CostRecordCategory, range: Range) {
-  const records = await CostRecord.find({ category }).sort('periodMonth').lean();
+async function getCostRecordTrend(categories: (CostRecordCategory | 'gas')[], range: Range) {
+  const records = await CostRecord.find({ category: { $in: categories } }).sort('periodMonth').lean();
   const buckets = new Map<string, number>();
   for (const record of records) {
     const key = bucketPeriod(record.periodMonth, range);
@@ -104,9 +111,9 @@ export async function GET(req: NextRequest) {
     } else if (metric === 'processing_unit_cost') {
       data = await getProcessingUnitCostTrend(range);
     } else {
-      const category = COST_RECORD_METRIC_CATEGORY[metric];
-      if (!category) return NextResponse.json({ message: `不支援的 metric: ${metric}` }, { status: 400 });
-      data = (await getCostRecordTrend(category, range)).sort((a, b) => a.period.localeCompare(b.period));
+      const categories = COST_RECORD_METRIC_CATEGORY[metric];
+      if (!categories) return NextResponse.json({ message: `不支援的 metric: ${metric}` }, { status: 400 });
+      data = (await getCostRecordTrend(categories, range)).sort((a, b) => a.period.localeCompare(b.period));
     }
 
     return NextResponse.json({ message: 'success', data });
