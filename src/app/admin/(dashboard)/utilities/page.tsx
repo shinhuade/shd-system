@@ -2,7 +2,8 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
-import { Alert, App, Button, Card, Col, Form, Input, Modal, Row, Statistic, Tabs } from 'antd';
+import { Alert, App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Statistic, Tabs } from 'antd';
+import dayjs from 'dayjs';
 import { Plus, Pen } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
@@ -125,6 +126,11 @@ export default function UtilitiesPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [current?._id]);
 
+  /**
+   * 建立牌價項目時一併寫入第一筆價格版本。
+   * 拆成兩步（先建項目、再開另一個視窗設單價）沒有任何好處，
+   * 使用者手上就是一張帳單，單位與單價本來就一起看得到。
+   */
   const onCreateBase = async () => {
     try {
       const values = await createForm.validateFields();
@@ -136,7 +142,26 @@ export default function UtilitiesPage() {
       });
       const result = await res.json();
       if (!res.ok) throw new Error(result.message || '建立失敗');
-      message.success('已建立，請接著設定單價');
+
+      // 項目建好後接著補上第一筆價格版本；單價寫入失敗時項目仍在，
+      // 明講出來讓使用者自己補，不要假裝整件事成功了
+      const createdId = result?.data?._id;
+      const effectiveDate = (values.effectiveDate ?? dayjs()).toDate();
+      try {
+        const priceRes = await fetch(`/api/admin/utility-rates/${createdId}/price-history`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ unitPrice: values.unitPrice, effectiveDate }),
+        });
+        const priceResult = await priceRes.json();
+        if (!priceRes.ok) throw new Error(priceResult.message || '單價寫入失敗');
+        message.success('已建立項目與第一筆單價');
+      } catch (priceErr) {
+        message.warning(
+          `項目已建立，但單價尚未寫入（${priceErr instanceof Error ? priceErr.message : '未知錯誤'}），請用「新增價格版本」補上`,
+        );
+      }
+
       setCreateModalOpen(false);
       createForm.resetFields();
       await loadRates();
@@ -301,13 +326,29 @@ export default function UtilitiesPage() {
         onOk={onCreateBase}
         confirmLoading={submitting}
         afterOpenChange={(open) => {
-          // 預帶該項目的慣用單位（天然氣 m³、桶裝 kg），仍可自行修改
-          if (open) createForm.setFieldsValue({ unitLabel: UTILITY_TYPE_DEFAULT_UNITS[activeType as UtilityType] ?? '' });
+          // 預帶該項目的慣用單位（天然氣 m³、桶裝 kg）與今天的生效日，仍可自行修改
+          if (open) {
+            createForm.setFieldsValue({
+              unitLabel: UTILITY_TYPE_DEFAULT_UNITS[activeType as UtilityType] ?? '',
+              effectiveDate: dayjs(),
+            });
+          }
         }}
       >
         <Form form={createForm} layout="vertical">
           <Form.Item name="unitLabel" label="計價單位" rules={[{ required: true, message: '請輸入計價單位，例如：度、噸' }]}>
             <Input placeholder="例如：元/m³、元/kg、度" />
+          </Form.Item>
+          <Form.Item name="unitPrice" label="單價" rules={[{ required: true, message: '請輸入單價' }]}>
+            <InputNumber style={{ width: '100%' }} min={0} prefix="$" placeholder="抄自帳單，可填到小數第四位" />
+          </Form.Item>
+          <Form.Item
+            name="effectiveDate"
+            label="生效日期"
+            rules={[{ required: true, message: '請選擇生效日期' }]}
+            extra="之後漲價時用「新增價格版本」再加一筆，舊月份仍會用當時的單價重算。"
+          >
+            <DatePicker style={{ width: '100%' }} />
           </Form.Item>
         </Form>
       </Modal>

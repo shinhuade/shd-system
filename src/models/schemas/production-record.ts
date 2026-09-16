@@ -64,6 +64,25 @@ export const ProductionRecordSchema = z
 
 export type ProductionRecordInput = z.infer<typeof ProductionRecordSchema>;
 
+/**
+ * 只更新瓦斯用量用的局部 schema。
+ *
+ * 「每月生產紀錄」的 PUT 是整筆覆蓋，工作天數與生產才數都是必填；
+ * 但在「每月成本紀錄」的瓦斯試算卡片裡，使用者只是要補瓦斯用量，
+ * 不該被迫連帶輸入當月才數，也絕不能因為沒填就把既有的才數洗成 0。
+ * 因此另開一個只含瓦斯三欄的 schema，由 PATCH 合併進既有紀錄。
+ */
+export const ProductionGasUsageSchema = z
+  .object({
+    periodMonth: periodMonthField,
+    naturalGasUsageM3: z.number().min(0).optional(),
+    naturalGasAvgHeatingValue: z.number().min(0).optional(),
+    bottledGasUsageKg: z.number().min(0).optional(),
+  })
+  .strict();
+
+export type ProductionGasUsageInput = z.infer<typeof ProductionGasUsageSchema>;
+
 /** 平均每天生產才數，工作天數為 0 時回傳 0（不猜測） */
 export function computeAvgCaiPerDay(producedCai: number, workingDays: number): number {
   if (!workingDays) return 0;

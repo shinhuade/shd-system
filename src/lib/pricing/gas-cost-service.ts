@@ -13,6 +13,10 @@ import { computeMonthlyGasCost, MonthlyGasCostResult, NATURAL_GAS_BASE_HEATING_V
  * 單價一律取「該月最後一天當下有效」的歷史版本，而不是主檔上的目前單價：
  * 補算三個月前的帳時，要用的是當時的單價，不是今天的。沒有任何歷史版本時
  * 才退回主檔目前值，並在 priceSource 標明，讓使用者知道這個數字的來源。
+ *
+ * 回傳同時包含「已存用量」與「依該用量算出的金額」：前者給試算卡片預帶輸入框，
+ * 後者讓這支 API 單獨呼叫時也有意義。卡片上使用者改動用量後的即時金額，
+ * 是在前端用同一支純函式引擎重算的，兩邊算式保證一致。
  */
 export interface GasCostEstimateSource {
   /** 有沒有建立這個瓦斯項目的牌價主檔 */
@@ -24,14 +28,21 @@ export interface GasCostEstimateSource {
   priceSource: 'history' | 'current' | 'missing';
 }
 
+/** 當月已存的瓦斯用量，供試算卡片帶入輸入框 */
+export interface GasUsageSnapshot {
+  naturalGasUsageM3: number;
+  naturalGasAvgHeatingValue: number;
+  bottledGasUsageKg: number;
+}
+
 export interface GasCostEstimate extends MonthlyGasCostResult {
   periodMonth: string;
   /** 當月有沒有生產紀錄。沒有的話用量全為 0，金額也會是 0 */
   hasProductionRecord: boolean;
+  /** 目前存在生產紀錄裡的用量，試算卡片用它預帶輸入框 */
+  usage: GasUsageSnapshot;
   naturalSource: GasCostEstimateSource;
   bottledSource: GasCostEstimateSource;
-  /** 使用者需要先補齊的資料，全部齊備時為空陣列 */
-  missing: string[];
 }
 
 /** 該月最後一刻，用來決定要套用哪一版牌價 */
@@ -96,27 +107,12 @@ export async function estimateMonthlyGasCost(periodMonth: string): Promise<GasCo
     },
   });
 
-  // 只在「有用量卻缺對應資料」時才提醒，沒用到的瓦斯種類不該跳警告
-  const missing: string[] = [];
-  if (!production) {
-    missing.push(`${periodMonth} 尚未建立生產紀錄，請先到「每月生產紀錄」填入瓦斯用量`);
-  }
-  if (naturalGasUsageM3 > 0 && !naturalSource.configured) {
-    missing.push('尚未建立「天然氣」牌價，請到「水電瓦斯 → 天然氣」新增');
-  }
-  if (naturalGasUsageM3 > 0 && !avgHeatingValueKcal) {
-    missing.push('尚未填寫當月天然氣平均熱值，目前不做熱值調整（等同係數 1）');
-  }
-  if (bottledGasUsageKg > 0 && !bottledSource.configured) {
-    missing.push('尚未建立「桶裝瓦斯」牌價，請到「水電瓦斯 → 桶裝瓦斯」新增');
-  }
-
   return {
     ...result,
     periodMonth,
     hasProductionRecord: Boolean(production),
+    usage: { naturalGasUsageM3, naturalGasAvgHeatingValue: avgHeatingValueKcal, bottledGasUsageKg },
     naturalSource,
     bottledSource,
-    missing,
   };
 }
