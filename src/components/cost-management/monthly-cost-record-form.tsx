@@ -9,6 +9,7 @@ import {
   resolveCostCategoryGroup,
   resolveCostCategoryLabel,
 } from '@/models/schemas/cost-record';
+import GasCostPanel from './gas-cost-panel';
 
 interface CostEntry {
   category: string;
@@ -76,6 +77,18 @@ export default function MonthlyCostRecordForm() {
     setEntries((prev) => prev.map((entry) => (entry.category === category ? { ...entry, amount } : entry)));
   };
 
+  /** 瓦斯試算的結果一次填入兩個類別；填完仍要按「儲存」才會寫進資料庫 */
+  const applyGasAmounts = ({ naturalGas, bottledGas }: { naturalGas: number; bottledGas: number }) => {
+    setEntries((prev) =>
+      prev.map((entry) => {
+        if (entry.category === 'gas_natural') return { ...entry, amount: Math.round(naturalGas) };
+        if (entry.category === 'gas_bottled') return { ...entry, amount: Math.round(bottledGas) };
+        return entry;
+      }),
+    );
+    message.success('已帶入試算金額，確認後請按「儲存」');
+  };
+
   const baseTotal = entries
     .filter((entry) => resolveCostCategoryGroup(entry.category) !== 'direct')
     .reduce((sum, entry) => sum + (entry.amount || 0), 0);
@@ -138,7 +151,8 @@ export default function MonthlyCostRecordForm() {
       >
         <p style={{ color: 'rgba(0,0,0,0.45)', marginBottom: 16, fontSize: 13, lineHeight: 1.6 }}>
           這裡輸入的是工廠當月「實際發生」的成本。粉體與包材是逐件計算的直接成本，不列入每才基本成本；
-          其餘項目（人事／電費／瓦斯／水費／租金／保全／會計／其他／自訂）都會分攤到當月生產才數上。
+          其餘項目（人事／電費／天然氣／桶裝瓦斯／水費／租金／保全／會計／其他／自訂）都會分攤到當月生產才數上。
+          天然氣與桶裝瓦斯可以用下方的「瓦斯費試算」自動算好帶入。
         </p>
 
         <Row gutter={[16, 16]}>
@@ -180,6 +194,8 @@ export default function MonthlyCostRecordForm() {
           </Button>
         </div>
       </Card>
+
+      <GasCostPanel periodMonth={periodMonth} onApply={applyGasAmounts} />
 
       <Modal
         open={customModalOpen}

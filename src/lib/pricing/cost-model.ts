@@ -33,6 +33,13 @@ export interface MonthlyProductionSummary {
   producedCai: number;
   avgFilmThicknessUm?: number;
   powderUsageKg?: number;
+  /** 天然氣供氣量 (m³) */
+  naturalGasUsageM3?: number;
+  /** 天然氣當月平均熱值 (kcal/m³) */
+  naturalGasAvgHeatingValue?: number;
+  /** 桶裝瓦斯用量 (kg) */
+  bottledGasUsageKg?: number;
+  /** 拆分前的舊瓦斯用量欄位，僅既有資料會有值 */
   gasUsage?: number;
   electricityUsageKwh?: number;
   waterUsage?: number;

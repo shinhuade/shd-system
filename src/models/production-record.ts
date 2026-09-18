@@ -23,6 +23,10 @@ const ProductionRecordSchema: Schema = new Schema(
     producedCai: { type: Number, required: true, default: 0 },
     avgFilmThicknessUm: { type: Number },
     powderUsageKg: { type: Number },
+    naturalGasUsageM3: { type: Number },
+    naturalGasAvgHeatingValue: { type: Number },
+    bottledGasUsageKg: { type: Number },
+    // 拆分前的舊欄位，保留讓既有資料讀得到
     gasUsage: { type: Number },
     electricityUsageKwh: { type: Number },
     waterUsage: { type: Number },

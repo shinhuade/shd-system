@@ -33,7 +33,23 @@ export const ProductionRecordSchema = z
     avgFilmThicknessUm: z.number().min(0).optional(),
     /** 當月噴粉量 (kg) */
     powderUsageKg: z.number().min(0).optional(),
-    /** 當月瓦斯用量（單位依工廠帳單，例如度／m³） */
+    /**
+     * 當月天然氣供氣量 (m³)，來自瓦斯帳單。
+     * 與下面的平均熱值、以及「水電瓦斯 → 天然氣」的單價一起算出當月天然氣費：
+     * 供氣量 × 單價 × (平均熱值 ÷ 基準熱值)，見 lib/pricing/gas-cost。
+     */
+    naturalGasUsageM3: z.number().min(0).optional(),
+    /**
+     * 當月天然氣平均熱值 (kcal/m³)，逐月抄自帳單。
+     * 每個月都會浮動，因此存在生產紀錄而非系統設定：回頭查舊月份的帳時，
+     * 看到的必須是當時的熱值，不能被後來的新值蓋掉。未填則不做熱值調整。
+     */
+    naturalGasAvgHeatingValue: z.number().min(0).optional(),
+    /** 當月桶裝瓦斯用量 (kg)。桶裝按重量計價，沒有熱值調整。 */
+    bottledGasUsageKg: z.number().min(0).optional(),
+    /**
+     * 拆分成天然氣／桶裝之前的瓦斯用量欄位，僅供既有資料顯示，不再寫入新值。
+     */
     gasUsage: z.number().min(0).optional(),
     /** 當月用電量 (kWh) */
     electricityUsageKwh: z.number().min(0).optional(),
@@ -47,6 +63,25 @@ export const ProductionRecordSchema = z
   .strict();
 
 export type ProductionRecordInput = z.infer<typeof ProductionRecordSchema>;
+
+/**
+ * 只更新瓦斯用量用的局部 schema。
+ *
+ * 「每月生產紀錄」的 PUT 是整筆覆蓋，工作天數與生產才數都是必填；
+ * 但在「每月成本紀錄」的瓦斯試算卡片裡，使用者只是要補瓦斯用量，
+ * 不該被迫連帶輸入當月才數，也絕不能因為沒填就把既有的才數洗成 0。
+ * 因此另開一個只含瓦斯三欄的 schema，由 PATCH 合併進既有紀錄。
+ */
+export const ProductionGasUsageSchema = z
+  .object({
+    periodMonth: periodMonthField,
+    naturalGasUsageM3: z.number().min(0).optional(),
+    naturalGasAvgHeatingValue: z.number().min(0).optional(),
+    bottledGasUsageKg: z.number().min(0).optional(),
+  })
+  .strict();
+
+export type ProductionGasUsageInput = z.infer<typeof ProductionGasUsageSchema>;
 
 /** 平均每天生產才數，工作天數為 0 時回傳 0（不猜測） */
 export function computeAvgCaiPerDay(producedCai: number, workingDays: number): number {
