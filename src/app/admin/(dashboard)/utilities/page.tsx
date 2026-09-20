@@ -2,9 +2,24 @@
 
 import { useEffect, useState, useCallback } from 'react';
 import styled from 'styled-components';
-import { Alert, App, Button, Card, Col, DatePicker, Form, Input, InputNumber, Modal, Row, Statistic, Tabs } from 'antd';
+import {
+  Alert,
+  App,
+  Button,
+  Card,
+  Col,
+  DatePicker,
+  Form,
+  Input,
+  InputNumber,
+  Modal,
+  Popconfirm,
+  Row,
+  Statistic,
+  Tabs,
+} from 'antd';
 import dayjs from 'dayjs';
-import { Plus, Pen } from '@styled-icons/fa-solid';
+import { Plus, Pen, Trash } from '@styled-icons/fa-solid';
 import PriceHistoryTable, { PriceHistoryRow } from '@/components/versioned-resource/price-history-table';
 import AddVersionModal from '@/components/versioned-resource/add-version-modal';
 import TrendLineChart from '@/components/charts/trend-line-chart';
@@ -26,7 +41,7 @@ const ACTIVE_TABS = ACTIVE_UTILITY_TYPES.map((value) => ({ value: value as strin
 const TYPE_HINTS: Partial<Record<string, string>> = {
   gas_natural: '按立方公尺計價。當月瓦斯費 = 供氣量 × 單價 × (平均熱值 ÷ 8900 基準熱值)，供氣量與平均熱值請填在「成本管理 → 每月生產紀錄」。',
   gas_bottled: '按公斤計價，沒有熱值調整。當月瓦斯費 = 用量(kg) × 單價。用量請填在「成本管理 → 每月生產紀錄」。',
-  gas: '這是拆分成天然氣／桶裝瓦斯之前的舊項目，僅供查閱歷史牌價，不建議再新增價格版本。',
+  gas: '這是拆分成天然氣／桶裝瓦斯之前的舊項目，已停用。確認歷史牌價不再需要後，可用下方的「刪除這個舊項目」移除，移除後這個分頁就不再出現。',
 };
 
 interface UtilityRate {
@@ -219,6 +234,30 @@ export default function UtilitiesPage() {
     }
   };
 
+  /**
+   * 刪除已停用的舊「瓦斯」項目。後端的 DELETE 會連同它的價格歷史一起刪除，
+   * 因此這是不可還原的操作，按鈕只出現在舊項目上，不讓現用項目誤刪。
+   *
+   * 每月成本紀錄裡若還有記在舊 'gas' 類別的金額，不會被這裡影響 ——
+   * 那是另一份資料，要在「每月成本紀錄」逐月自行移除。
+   */
+  const onDeleteLegacyRate = async () => {
+    if (!current) return;
+    setSubmitting(true);
+    try {
+      const res = await fetch(`/api/admin/utility-rates/${current._id}`, { method: 'DELETE' });
+      const result = await res.json();
+      if (!res.ok) throw new Error(result.message || '刪除失敗');
+      message.success('已刪除舊的瓦斯項目');
+      setActiveType('gas_natural');
+      await loadRates();
+    } catch (err) {
+      if (err instanceof Error) message.error(err.message);
+    } finally {
+      setSubmitting(false);
+    }
+  };
+
   const onDeleteVersion = async (row: PriceHistoryRow) => {
     if (!current) return;
     try {
@@ -272,6 +311,20 @@ export default function UtilitiesPage() {
             <CurrentPriceRow>
               <Statistic title="目前單價" value={current.currentUnitPrice} precision={2} prefix="$" suffix={`/ ${current.unitLabel}`} />
               <div className="actions">
+                {activeType === 'gas' ? (
+                  <Popconfirm
+                    title="刪除這個舊項目？"
+                    description="會連同它的價格歷史一起刪除，無法復原。"
+                    okText="刪除"
+                    okButtonProps={{ danger: true }}
+                    cancelText="取消"
+                    onConfirm={onDeleteLegacyRate}
+                  >
+                    <Button danger icon={<Trash size={14} />} loading={submitting}>
+                      刪除這個舊項目
+                    </Button>
+                  </Popconfirm>
+                ) : null}
                 <Button
                   icon={<Pen size={14} />}
                   onClick={() => {
