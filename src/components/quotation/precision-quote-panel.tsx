@@ -79,7 +79,8 @@ export default function PrecisionQuotePanel() {
       try {
         const [materialsRes, customersRes, settingsRes] = await Promise.all([
           fetch('/api/admin/materials'),
-          fetch('/api/generic/customer/all'),
+          // 客戶／廠商共用同一份主檔，報價只該選得到客戶，因此濾掉純廠商
+          fetch('/api/generic/customer/all?filterField=isCustomer&filterValue=true'),
           fetch('/api/admin/system-settings/current'),
         ]);
         const [materialsResult, customersResult, settingsResult] = await Promise.all([

@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server';
 import dbConnect from '@/lib/db';
 import { modelMap } from '@/lib/model-map';
+import { buildFilterQuery } from '../route';
 import { validateAdmin } from '@/lib/auth/server';
 
 /**
@@ -44,10 +45,16 @@ export async function GET(req: Request, { params }: { params: Promise<{ collecti
 
     const { searchParams } = new URL(req.url);
     const sort = searchParams.get('sort') || '-createdAt';
+    // 與列表共用同一套「只允許 schema 既有欄位、只做等值比對」的篩選
+    const filterQuery = buildFilterQuery(
+      Model,
+      searchParams.get('filterField'),
+      searchParams.get('filterValue'),
+    );
 
     await dbConnect();
 
-    const data = await Model.find({}).sort(sort).lean();
+    const data = await Model.find(filterQuery).sort(sort).lean();
 
     return NextResponse.json({ message: 'success', total: data.length, data });
   } catch (err) {

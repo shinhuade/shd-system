@@ -1,14 +1,52 @@
 {
-  "name": "客戶",
+  "name": "客戶／廠商",
   "collection": "customer",
   "path": "customer",
-  "searchFields": ["name", "contactPerson", "phone", "email", "taxId"],
+  "searchFields": [
+    "name",
+    "customerCode",
+    "supplierCode",
+    "contactPerson",
+    "phone",
+    "fax",
+    "email",
+    "taxId",
+    "shippingAddress",
+    "invoiceAddress"
+  ],
   "renderDelete": true,
+  "filters": [
+    { "label": "全部" },
+    { "label": "客戶", "field": "isCustomer", "value": "true" },
+    { "label": "廠商", "field": "isSupplier", "value": "true" }
+  ],
   "columns": [
     {
-      "title": "客戶名稱",
+      "title": "客戶編號",
+      "key": "customerCode",
+      "dataIndex": "customerCode"
+    },
+    {
+      "title": "廠商編號",
+      "key": "supplierCode",
+      "dataIndex": "supplierCode"
+    },
+    {
+      "title": "名稱",
       "key": "name",
       "dataIndex": "name"
+    },
+    {
+      "title": "客戶",
+      "key": "isCustomer",
+      "dataIndex": "isCustomer",
+      "renderType": "boolean"
+    },
+    {
+      "title": "廠商",
+      "key": "isSupplier",
+      "dataIndex": "isSupplier",
+      "renderType": "boolean"
     },
     {
       "title": "聯絡人",
@@ -21,14 +59,15 @@
       "dataIndex": "phone"
     },
     {
-      "title": "電子信箱",
-      "key": "email",
-      "dataIndex": "email"
+      "title": "傳真",
+      "key": "fax",
+      "dataIndex": "fax"
     },
     {
       "title": "啟用中",
       "key": "isActive",
-      "dataIndex": "isActive"
+      "dataIndex": "isActive",
+      "renderType": "boolean"
     }
   ],
   "sortOptions": [
@@ -39,6 +78,18 @@
     {
       "label": "時間舊到新",
       "value": "createdAt"
+    },
+    {
+      "label": "客戶編號",
+      "value": "customerCode"
+    },
+    {
+      "label": "廠商編號",
+      "value": "supplierCode"
+    },
+    {
+      "label": "名稱",
+      "value": "name"
     }
   ],
   "formSpec": {
@@ -49,7 +100,25 @@
       "properties": {
         "name": {
           "type": "string",
-          "title": "客戶名稱"
+          "title": "名稱"
+        },
+        "isCustomer": {
+          "type": "boolean",
+          "title": "是客戶（會出現在報價的客戶選單）",
+          "default": true
+        },
+        "isSupplier": {
+          "type": "boolean",
+          "title": "是廠商",
+          "default": false
+        },
+        "customerCode": {
+          "type": "string",
+          "title": "客戶編號"
+        },
+        "supplierCode": {
+          "type": "string",
+          "title": "廠商編號"
         },
         "contactPerson": {
           "type": "string",
@@ -59,13 +128,25 @@
           "type": "string",
           "title": "電話"
         },
+        "fax": {
+          "type": "string",
+          "title": "傳真"
+        },
         "email": {
           "type": "string",
           "title": "電子信箱"
         },
+        "shippingAddress": {
+          "type": "string",
+          "title": "送貨地址"
+        },
+        "invoiceAddress": {
+          "type": "string",
+          "title": "發票地址"
+        },
         "address": {
           "type": "string",
-          "title": "地址"
+          "title": "地址（舊欄位，請改填上面的送貨／發票地址）"
         },
         "taxId": {
           "type": "string",
@@ -87,6 +168,24 @@
       }
     },
     "uiSchema": {
+      "shippingAddress": {
+        "ui:widget": "textarea",
+        "ui:options": {
+          "rows": 2
+        }
+      },
+      "invoiceAddress": {
+        "ui:widget": "textarea",
+        "ui:options": {
+          "rows": 2
+        }
+      },
+      "address": {
+        "ui:widget": "textarea",
+        "ui:options": {
+          "rows": 2
+        }
+      },
       "notes": {
         "ui:widget": "textarea"
       }
