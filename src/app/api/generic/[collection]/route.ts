@@ -85,6 +85,42 @@ export const buildSearchQuery = (keyword: string | null | undefined, fields: str
   };
 };
 
+/**
+ * 依單一欄位做等值篩選（例如客戶／廠商主檔的 isCustomer=true）。
+ *
+ * filterField 一律先比對該 Model 真正存在的 schema 路徑，不存在就整個忽略：
+ * 查詢字串是使用者可控的輸入，若原封不動丟進 find()，等於讓任何人針對任意欄位
+ * 下條件、甚至塞入查詢運算子。只允許已定義的欄位、且只做等值比對。
+ *
+ * 值一律以字串傳入，因此依欄位型別轉換：布林欄位收 'true'/'false'，數字欄位轉數字，
+ * 其餘維持字串。轉不出來就忽略這個條件，不會退化成把字串拿去比對布林欄位。
+ */
+export const buildFilterQuery = (
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  Model: any,
+  filterField: string | null | undefined,
+  filterValue: string | null | undefined,
+) => {
+  if (!filterField || filterValue == null || filterValue === '') return {};
+
+  // 必須用 hasOwnProperty 檢查：paths['__proto__'] 會取到 Object 原型而非真正的欄位，
+  // 直接看真假值會讓 __proto__ 這類鍵通過檢查並被塞進查詢條件。
+  const paths = Model?.schema?.paths;
+  if (!paths || !Object.prototype.hasOwnProperty.call(paths, filterField)) return {};
+
+  const path = paths[filterField];
+  const instance = path?.instance;
+  if (instance === 'Boolean') {
+    if (filterValue !== 'true' && filterValue !== 'false') return {};
+    return { [filterField]: filterValue === 'true' };
+  }
+  if (instance === 'Number') {
+    const num = Number(filterValue);
+    return Number.isFinite(num) ? { [filterField]: num } : {};
+  }
+  return { [filterField]: filterValue };
+};
+
 export async function GET(req: NextRequest, { params }: { params: Promise<{ collection: string }> }) {
   try {
     const auth = await validateAdmin();
@@ -99,15 +135,18 @@ export async function GET(req: NextRequest, { params }: { params: Promise<{ coll
 
     const { searchParams } = new URL(req.nextUrl);
     const query = Object.fromEntries(searchParams.entries());
-    const { keyword, fields, page = 1, limit = 10, sort = '-createdAt' } = query;
+    const { keyword, fields, filterField, filterValue, page = 1, limit = 10, sort = '-createdAt' } = query;
     const skip = (Number(page) - 1) * Number(limit);
-    const searchQuery = buildSearchQuery(keyword, fields);
+    const finalQuery = {
+      ...buildSearchQuery(keyword, fields),
+      ...buildFilterQuery(Model, filterField, filterValue),
+    };
 
     await dbConnect();
 
     const [data, total] = await Promise.all([
-      Model.find(searchQuery).sort(sort).skip(skip).limit(Number(limit)).lean(),
-      Model.countDocuments(searchQuery),
+      Model.find(finalQuery).sort(sort).skip(skip).limit(Number(limit)).lean(),
+      Model.countDocuments(finalQuery),
     ]);
 
     return NextResponse.json({ message: 'success', total, data });

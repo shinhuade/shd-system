@@ -18,6 +18,7 @@ import {
   ChartLine,
   ChartPie,
   Users,
+  AddressBook,
   FileInvoiceDollar,
   Calendar,
   Gear,
@@ -34,6 +35,7 @@ const menuItems = [
     key: 'master-data',
     icon: <Warehouse size={16} />,
     children: [
+      { label: '客戶／廠商', key: '/admin/customer', icon: <AddressBook size={16} /> },
       { label: '粉料管理', key: '/admin/materials', icon: <Flask size={16} /> },
       { label: '包材藥水成本', key: '/admin/packaging', icon: <Box size={16} /> },
       { label: '水電瓦斯', key: '/admin/utilities', icon: <Bolt size={16} /> },

@@ -2,7 +2,7 @@
 
 import { ReactNode } from 'react';
 import { AdminListColumnConfig } from '@/types/admin-config';
-import { Image } from 'antd';
+import { Image, Tag } from 'antd';
 
 type TableRender = (val: unknown) => ReactNode;
 type CollectionMapItem = Record<string, unknown> & { _id?: string };
@@ -24,6 +24,8 @@ export const customColumns = (
         if (!val) return '-';
         return new Date(val as string | number | Date).toLocaleString('sv');
       };
+    } else if (col.renderType === 'boolean') {
+      renderFn = (val) => (val ? <Tag color="blue">是</Tag> : <span style={{ color: 'rgba(0,0,0,0.25)' }}>—</span>);
     } else if (col.renderType === 'image') {
       renderFn = (val) => {
         const src = typeof val === 'string' ? val.trim() : String(val ?? '').trim();

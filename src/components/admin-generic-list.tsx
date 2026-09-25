@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { AdminConfig } from '@/types/admin-config';
 import styled from 'styled-components';
-import { Typography, Table, Space, Button, Popconfirm, Input, Select, App, Grid } from 'antd';
+import { Typography, Table, Space, Button, Popconfirm, Input, Select, Segmented, App, Grid } from 'antd';
 import { customColumns } from './custom-render-generic';
 import type { TablePaginationConfig } from 'antd';
 
@@ -23,7 +23,7 @@ interface BaseData {
 type CollectionMapState = Record<string, BaseData[]>;
 
 export default function AdminGenericList({ config }: AdminGenericListProps) {
-  const { collection, name, columns, renderDelete, sortOptions, searchFields, path } = config;
+  const { collection, name, columns, renderDelete, sortOptions, searchFields, path, filters } = config;
   const { message } = App.useApp();
   const router = useRouter();
   const screens = Grid.useBreakpoint();
@@ -38,6 +38,8 @@ export default function AdminGenericList({ config }: AdminGenericListProps) {
     total: 0,
   });
   const [keyword, setKeyword] = useState<string>();
+  // 分頁篩選器的目前選擇（索引）；沒設定 filters 的 collection 完全不受影響
+  const [filterIndex, setFilterIndex] = useState<number>(0);
   const [collectionMap, setCollectionMap] = useState<CollectionMapState>({});
 
   const { current, pageSize } = pagination;
@@ -102,6 +104,9 @@ export default function AdminGenericList({ config }: AdminGenericListProps) {
     };
   }, [dynamicCollections]);
 
+  // filters 來自靜態設定檔，因此這個物件參照只在切換分頁時才變動，可直接當相依項
+  const activeFilter = filters?.[filterIndex];
+
   const fetchData = useCallback(
     async (current = 1, pageSize = 10, searchKey = '') => {
       try {
@@ -110,6 +115,9 @@ export default function AdminGenericList({ config }: AdminGenericListProps) {
             fields: memoizedSearchFields,
             keyword: searchKey,
           }),
+          ...(activeFilter?.field && activeFilter?.value
+            ? { filterField: activeFilter.field, filterValue: activeFilter.value }
+            : {}),
           page: current.toString(),
           limit: pageSize.toString(),
           sort: sort,
@@ -123,7 +131,7 @@ export default function AdminGenericList({ config }: AdminGenericListProps) {
         console.error('Fetch error:', err);
       }
     },
-    [collection, sort, memoizedSearchFields],
+    [collection, sort, memoizedSearchFields, activeFilter],
   );
 
   const handleDelete = useCallback(
@@ -246,6 +254,21 @@ export default function AdminGenericList({ config }: AdminGenericListProps) {
       <Title level={3} className="list-title">
         {name}列表
       </Title>
+
+      {filters && filters.length > 0 && (
+        <Segmented
+          block={isMobile}
+          style={{ marginBottom: 16 }}
+          value={filterIndex}
+          onChange={(val) => {
+            setFilterIndex(Number(val));
+            // 換了篩選條件，原本的頁碼多半已不存在，回到第一頁
+            setPagination((prev) => ({ ...prev, current: 1 }));
+          }}
+          options={filters.map((filter, index) => ({ label: filter.label, value: index }))}
+        />
+      )}
+
       <Filter>
         <Search
           style={{ maxWidth: 200 }}
