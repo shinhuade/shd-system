@@ -17,6 +17,22 @@ const QuotationSchema: Schema = new Schema(
     quotationNo: { type: String, required: true, unique: true },
     quoteMode: { type: String, enum: QUOTE_MODES, default: 'wizard' },
     customerId: { type: Schema.Types.ObjectId, ref: 'Customer', required: true, index: true },
+    // 報價當下的客戶聯絡資料快照，讓報價單的地址不會被日後的主檔變更改掉
+    customerSnapshot: {
+      type: new Schema(
+        {
+          name: { type: String },
+          customerCode: { type: String },
+          taxId: { type: String },
+          contactPerson: { type: String },
+          phone: { type: String },
+          fax: { type: String },
+          shippingAddress: { type: String },
+          invoiceAddress: { type: String },
+        },
+        { _id: false },
+      ),
+    },
     quotationDate: { type: Date, required: true },
     status: { type: String, enum: QUOTATION_STATUSES, default: 'draft' },
     createdBy: { type: Schema.Types.ObjectId, ref: 'Admin' },

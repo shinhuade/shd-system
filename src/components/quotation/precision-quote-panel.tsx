@@ -22,6 +22,14 @@ interface MaterialOption {
 interface CustomerOption {
   _id: string;
   name: string;
+  customerCode?: string;
+  taxId?: string;
+  contactPerson?: string;
+  phone?: string;
+  fax?: string;
+  shippingAddress?: string;
+  invoiceAddress?: string;
+  targetMarginRatePercent?: number;
 }
 
 interface MaterialSnapshot {
@@ -35,6 +43,9 @@ interface CalculateResponse {
   result: PrecisionQuoteResult;
   costModel: CostModel;
   material: MaterialSnapshot;
+  /** 這次試算的目標毛利率是怎麼決定的，由伺服器解析後回傳 */
+  marginRateSource: 'input' | 'customer' | 'system';
+  targetMarginRatePercent: number;
 }
 
 const FILM_THICKNESS_PRESETS = [40, 50, 60, 70, 80, 100];
@@ -61,7 +72,14 @@ export default function PrecisionQuotePanel() {
   const [materialId, setMaterialId] = useState<string>();
   const [filmThicknessUm, setFilmThicknessUm] = useState<number>(60);
   const [quantity, setQuantity] = useState<number>(1);
-  const [targetMarginRatePercent, setTargetMarginRatePercent] = useState<number>();
+  /**
+   * 目標毛利率一律由伺服器依「手動覆寫 → 客戶專屬 → 公司標準」解析，
+   * 這裡只保存使用者「有沒有手動改過」。留 undefined 就是交給伺服器決定，
+   * 客戶換了才會自動跟著換；若在這裡預填公司標準並每次送出，
+   * 客戶專屬毛利率永遠不會生效（這正是原本的問題）。
+   */
+  const [marginRateOverride, setMarginRateOverride] = useState<number>();
+  const [systemMarginRatePercent, setSystemMarginRatePercent] = useState<number>();
 
   const [calculating, setCalculating] = useState(false);
   const [rawCalcError, setCalcError] = useState<string>();
@@ -91,7 +109,7 @@ export default function PrecisionQuotePanel() {
         if (!mounted) return;
         setMaterials((materialsResult?.data || []).filter((m: MaterialOption) => m.isActive));
         setCustomers(customersResult?.data || []);
-        setTargetMarginRatePercent(settingsResult?.data?.targetMarginRatePercent ?? undefined);
+        setSystemMarginRatePercent(settingsResult?.data?.targetMarginRatePercent ?? undefined);
       } catch (err) {
         console.error(err);
       } finally {
@@ -125,7 +143,8 @@ export default function PrecisionQuotePanel() {
           workpieceFormulaTemplateId: cai.formulaTemplateId,
           filmThicknessUm,
           quantity,
-          targetMarginRatePercent,
+          customerId,
+          targetMarginRatePercent: marginRateOverride,
         }),
       });
       const result = await res.json();
@@ -139,13 +158,41 @@ export default function PrecisionQuotePanel() {
       setCalculating(false);
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [materialId, dimensionsKey, facesKey, filmThicknessUm, quantity, targetMarginRatePercent]);
+  }, [materialId, dimensionsKey, facesKey, filmThicknessUm, quantity, customerId, marginRateOverride]);
 
   useEffect(() => {
     if (!readyToCalculate) return;
     const timer = setTimeout(calculate, 400);
     return () => clearTimeout(timer);
   }, [readyToCalculate, calculate]);
+
+  const selectedCustomer = customers.find((c) => c._id === customerId);
+
+  /**
+   * 顯示用的毛利率與說明。實際採用的值一律由伺服器解析後回傳（data.targetMarginRatePercent），
+   * 還沒試算時先用手上的資料推同一套順序，讓欄位提示不會空著。
+   */
+  const effectiveMarginRate =
+    rawData?.targetMarginRatePercent ??
+    marginRateOverride ??
+    selectedCustomer?.targetMarginRatePercent ??
+    systemMarginRatePercent;
+
+  const marginRateSource = rawData?.marginRateSource
+    ?? (marginRateOverride != null
+      ? 'input'
+      : selectedCustomer?.targetMarginRatePercent != null
+        ? 'customer'
+        : 'system');
+
+  const marginRateHint =
+    marginRateSource === 'input'
+      ? '手動指定。清空欄位即改回自動（客戶專屬 → 公司標準）'
+      : marginRateSource === 'customer'
+        ? `已套用 ${selectedCustomer?.name ?? '該客戶'} 的專屬毛利率 ${formatDecimal(effectiveMarginRate ?? 0, 1)}%`
+        : `公司標準 ${formatDecimal(effectiveMarginRate ?? 0, 1)}%${
+            customerId ? '（這位客戶未設定專屬毛利率）' : ''
+          }`;
 
   // 條件不足時不顯示上一次的試算結果（用衍生值而非在 effect 內清狀態）
   const data = readyToCalculate ? rawData : null;
@@ -155,6 +202,7 @@ export default function PrecisionQuotePanel() {
 
   // 還缺哪些輸入就直接列出來，避免使用者盯著空白的試算結果不知道要補什麼
   const missingInputs = [
+    !customerId && '客戶（決定目標毛利率）',
     !cai.hasDimensions && '工件尺寸（至少填長，加上寬或高）',
     !cai.hasFaces && '面數公式（選一個型態或自訂面數）',
     !materialId && '使用粉體',
@@ -206,7 +254,7 @@ export default function PrecisionQuotePanel() {
           workpieceFormulaTemplateId: cai.formulaTemplateId,
           filmThicknessUm,
           quantity,
-          targetMarginRatePercent,
+          targetMarginRatePercent: marginRateOverride,
           chosenPrice,
         }),
       });
@@ -240,6 +288,53 @@ export default function PrecisionQuotePanel() {
         <Row gutter={[16, 16]}>
           <Col xs={{ span: 24, order: 1 }} lg={{ span: 13, order: 1 }}>
             <Form layout="vertical">
+              {/* 客戶擺在最前面：它會決定目標毛利率，選在後面會讓已經算好的價格突然改變 */}
+              <Card size="small" title="客戶" variant="borderless" style={{ marginBottom: 12 }}>
+                <Form.Item required style={{ marginBottom: selectedCustomer ? 12 : 0 }}>
+                  <Select
+                    size="large"
+                    showSearch
+                    allowClear
+                    placeholder="搜尋客戶名稱或編號"
+                    value={customerId}
+                    onChange={(value) => setCustomerId(value ?? undefined)}
+                    filterOption={(input, option) =>
+                      (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
+                    }
+                    options={customers.map((c) => ({
+                      value: c._id,
+                      label: c.customerCode ? `${c.name}（${c.customerCode}）` : c.name,
+                    }))}
+                  />
+                </Form.Item>
+
+                {selectedCustomer && (
+                  <ContactList>
+                    {[
+                      ['客戶編號', selectedCustomer.customerCode],
+                      ['統一編號', selectedCustomer.taxId],
+                      ['聯絡人', selectedCustomer.contactPerson],
+                      ['電話', selectedCustomer.phone],
+                      ['傳真', selectedCustomer.fax],
+                      ['送貨地址', selectedCustomer.shippingAddress],
+                      ['發票地址', selectedCustomer.invoiceAddress],
+                    ]
+                      .filter(([, value]) => value)
+                      .map(([label, value]) => (
+                        <div className="row" key={label}>
+                          <span>{label}</span>
+                          <span>{value}</span>
+                        </div>
+                      ))}
+                    <div className="edit">
+                      <Button size="small" type="link" onClick={() => router.push(`/admin/customer/${selectedCustomer._id}`)}>
+                        維護這位客戶的資料
+                      </Button>
+                    </div>
+                  </ContactList>
+                )}
+              </Card>
+
               <DimensionFaceFields
                 dimensions={cai.dimensions}
                 onDimensionsChange={cai.setDimensions}
@@ -304,15 +399,20 @@ export default function PrecisionQuotePanel() {
                     </Form.Item>
                   </Col>
                   <Col xs={12}>
-                    <Form.Item label="目標毛利率 (%)" style={{ marginBottom: 0 }}>
+                    <Form.Item
+                      label="目標毛利率 (%)"
+                      style={{ marginBottom: 0 }}
+                      extra={marginRateHint}
+                    >
                       <InputNumber
                         size="large"
                         inputMode="decimal"
                         style={{ width: '100%' }}
                         min={0}
                         max={99}
-                        value={targetMarginRatePercent}
-                        onChange={(v) => setTargetMarginRatePercent(v ?? undefined)}
+                        placeholder={effectiveMarginRate != null ? String(effectiveMarginRate) : undefined}
+                        value={marginRateOverride}
+                        onChange={(v) => setMarginRateOverride(v ?? undefined)}
                       />
                     </Form.Item>
                   </Col>
@@ -479,19 +579,6 @@ export default function PrecisionQuotePanel() {
 
                   <Card size="small" variant="borderless" style={{ marginTop: 16, background: '#fafafa' }}>
                     <Form layout="vertical">
-                      <Form.Item label="客戶" required style={{ marginBottom: 12 }}>
-                        <Select
-                          size="large"
-                          showSearch
-                          placeholder="選擇客戶"
-                          value={customerId}
-                          onChange={setCustomerId}
-                          filterOption={(input, option) =>
-                            (option?.label as string)?.toLowerCase().includes(input.toLowerCase())
-                          }
-                          options={customers.map((c) => ({ value: c._id, label: c.name }))}
-                        />
-                      </Form.Item>
                       <Form.Item label="工件名稱" required style={{ marginBottom: 12 }}>
                         <Input
                           size="large"
@@ -536,6 +623,36 @@ export default function PrecisionQuotePanel() {
     </section>
   );
 }
+
+const ContactList = styled.div`
+  border-top: 1px dashed rgba(0, 0, 0, 0.1);
+  padding-top: 10px;
+
+  .row {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    gap: 12px;
+    padding: 3px 0;
+    font-size: 13px;
+    flex-wrap: wrap;
+
+    span:first-child {
+      color: rgba(0, 0, 0, 0.45);
+      flex-shrink: 0;
+    }
+
+    span:last-child {
+      text-align: right;
+      word-break: break-all;
+    }
+  }
+
+  .edit {
+    margin-top: 4px;
+    text-align: right;
+  }
+`;
 
 const PresetGrid = styled.div`
   display: grid;

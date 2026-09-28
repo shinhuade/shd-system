@@ -22,12 +22,25 @@ interface QuotationItem {
   marginRatePercent: number;
 }
 
+/** 報價當下的客戶聯絡資料。此欄位加入前的舊報價沒有值，屆時退回讀主檔目前值。 */
+interface CustomerSnapshot {
+  name?: string;
+  customerCode?: string;
+  taxId?: string;
+  contactPerson?: string;
+  phone?: string;
+  fax?: string;
+  shippingAddress?: string;
+  invoiceAddress?: string;
+}
+
 interface Quotation {
   _id: string;
   quotationNo: string;
   quotationDate: string;
   status: string;
-  customerId?: { name: string };
+  customerId?: { name: string } & CustomerSnapshot;
+  customerSnapshot?: CustomerSnapshot;
   totalCostPrice: number;
   chosenPrice: number;
   marginAmount: number;
@@ -86,6 +99,25 @@ export default function QuotationDetailClient({ id }: { id: string }) {
     };
   }, [id]);
 
+  /**
+   * 優先顯示報價當下的快照；此欄位加入前建立的舊報價沒有快照，
+   * 才退回主檔目前值，並在標題明確標示，避免把今天的地址誤當成當初報價用的地址。
+   */
+  const hasSnapshot = Boolean(quotation?.customerSnapshot?.name);
+  const contact: CustomerSnapshot = (hasSnapshot ? quotation?.customerSnapshot : quotation?.customerId) ?? {};
+
+  const contactRows = (
+    [
+      ['客戶編號', contact.customerCode],
+      ['統一編號', contact.taxId],
+      ['聯絡人', contact.contactPerson],
+      ['電話', contact.phone],
+      ['傳真', contact.fax],
+      ['送貨地址', contact.shippingAddress],
+      ['發票地址', contact.invoiceAddress],
+    ] as [string, string | undefined][]
+  ).filter((row): row is [string, string] => Boolean(row[1]));
+
   const onRequoteCheck = async () => {
     setChecking(true);
     try {
@@ -110,13 +142,37 @@ export default function QuotationDetailClient({ id }: { id: string }) {
         <>
           <PageHeader
             title={quotation.quotationNo}
-            description={quotation.customerId?.name || '未知客戶'}
+            description={contact.name || '未知客戶'}
             extra={
               <Button icon={<ArrowsRotate size={14} />} loading={checking} onClick={onRequoteCheck}>
                 重新檢查是否該漲價
               </Button>
             }
           />
+
+          {contactRows.length > 0 && (
+            <Card
+              variant="borderless"
+              title="客戶資料"
+              size="small"
+              style={{ marginBottom: 16 }}
+              extra={
+                hasSnapshot ? (
+                  <Tag>報價當下</Tag>
+                ) : (
+                  <Tag color="orange">主檔目前值（此報價無當時快照）</Tag>
+                )
+              }
+            >
+              <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 3 }}>
+                {contactRows.map(([label, value]) => (
+                  <Descriptions.Item label={label} key={label}>
+                    {value}
+                  </Descriptions.Item>
+                ))}
+              </Descriptions>
+            </Card>
+          )}
 
           <Card variant="borderless" loading={loading} style={{ marginBottom: 16 }}>
             <Descriptions size="small" column={{ xs: 1, sm: 2, lg: 4 }}>

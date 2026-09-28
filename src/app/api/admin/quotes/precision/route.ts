@@ -33,13 +33,14 @@ export async function POST(req: NextRequest) {
 
     const quotationDate = input.quotationDate ?? new Date();
 
-    const { result, costModel, material, powder, systemSettingsId, targetMarginRatePercent } =
+    const { result, costModel, material, powder, systemSettingsId, targetMarginRatePercent, customer } =
       await calculatePrecisionQuote({
         materialId: input.materialId,
         dimensions: input.dimensions,
         faces: { lwFaces: input.lwFaces, lhFaces: input.lhFaces, whFaces: input.whFaces },
         filmThicknessUm: input.filmThicknessUm,
         quantity: input.quantity,
+        customerId: input.customerId,
         targetMarginRatePercent: input.targetMarginRatePercent,
         costModelPeriodMonth: input.costModelPeriodMonth,
         quotationDate,
@@ -59,6 +60,8 @@ export async function POST(req: NextRequest) {
           quotationNo,
           quoteMode: 'precision',
           customerId: input.customerId,
+          // 存下報價當下的聯絡資料，日後主檔地址變更不影響已開出的報價
+          customerSnapshot: customer,
           quotationDate,
           status: input.status,
           createdBy: auth.userId,

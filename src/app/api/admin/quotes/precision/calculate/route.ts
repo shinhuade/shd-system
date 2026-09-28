@@ -22,6 +22,7 @@ export async function POST(req: NextRequest) {
       faces: { lwFaces: input.lwFaces, lhFaces: input.lhFaces, whFaces: input.whFaces },
       filmThicknessUm: input.filmThicknessUm,
       quantity: input.quantity,
+      customerId: input.customerId,
       targetMarginRatePercent: input.targetMarginRatePercent,
       costModelPeriodMonth: input.costModelPeriodMonth,
     });
@@ -33,6 +34,10 @@ export async function POST(req: NextRequest) {
         costModel: context.costModel,
         material: context.material,
         powder: context.powder,
+        // 讓畫面能說清楚這個毛利率是手動填的、客戶專屬的，還是公司標準
+        marginRateSource: context.marginRateSource,
+        targetMarginRatePercent: context.targetMarginRatePercent,
+        customer: context.customer,
       },
     });
   } catch (err) {
