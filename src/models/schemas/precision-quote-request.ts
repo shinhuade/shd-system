@@ -22,6 +22,12 @@ export const PrecisionQuoteCalcSchema = z
     workpieceFormulaTemplateId: z.string().optional(),
     filmThicknessUm: z.number({ message: '膜厚必填' }).min(0),
     quantity: z.number().min(1).default(1),
+    /**
+     * 報價對象。試算階段選填（可能還沒選客戶），用來套用該客戶的專屬毛利率。
+     * 存檔時必填，由下方的 CreatePrecisionQuotationSchema 覆寫。
+     */
+    customerId: z.string().optional(),
+    /** 手動覆寫目標毛利率；未填則由伺服器依「客戶專屬 → 公司標準」解析 */
     targetMarginRatePercent: z.number().min(0).max(99.9).optional(),
     costModelPeriodMonth: z
       .string()
